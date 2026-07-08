@@ -13,7 +13,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/onemap" element={<OneMap />} />
-            <Route path="/detail" element={<Detail />} />
+            <Route path="/detail/:id" element={<Detail />} />
           </Routes>
         </MainLayout>
       </ToastProvider>

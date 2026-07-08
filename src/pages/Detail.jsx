@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useToast } from '../context/ToastContext'
-import { detailInfo, evidenceData, evidenceTabs, companies } from '../mock/detail'
+import { detailDataMap, allDetailIds, getAdjacentIds } from '../mock/detail'
 import './Detail.css'
 
 function renderStars(score) {
@@ -56,18 +56,28 @@ const infoFields = [
 ]
 
 export default function Detail() {
+  const { id } = useParams()
   const navigate = useNavigate()
   const toast = useToast()
+
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('remote')
   const [showModal, setShowModal] = useState(false)
   const [showMiniMap, setShowMiniMap] = useState(false)
-  const [verified, setVerified] = useState(detailInfo.status === '已验证')
+  const [verified, setVerified] = useState(false)
+
+  const data = detailDataMap[id]
+  const notFound = !data
 
   useEffect(() => {
+    setLoading(true)
+    setActiveTab('remote')
+    setShowModal(false)
+    setShowMiniMap(false)
+    setVerified(data?.detailInfo?.status === '已验证')
     const t = setTimeout(() => setLoading(false), 500)
     return () => clearTimeout(t)
-  }, [])
+  }, [id])
 
   if (loading) {
     return (
@@ -78,7 +88,24 @@ export default function Detail() {
     )
   }
 
+  if (notFound) {
+    return (
+      <div className="detail-page">
+        <div className="empty-state" style={{ paddingTop: 80 }}>
+          <div className="empty-icon">🔍</div>
+          <p style={{ fontSize: 16, marginBottom: 12 }}>未找到 ID 为「{id}」的疑似位置</p>
+          <button className="btn btn-outline" onClick={() => navigate('/onemap')}>
+            ← 返回海洋一张图
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  const { detailInfo, evidenceTabs, evidenceData, companies } = data
+  const { prev, next } = getAdjacentIds(id)
   const currentEvidences = evidenceData[activeTab] || []
+  const relatedMarkers = detailInfo.relatedMarkers || []
 
   const handleVerify = () => {
     setShowModal(false)
@@ -144,6 +171,28 @@ export default function Detail() {
             📄 导出报告
           </button>
         </div>
+      </div>
+
+      {/* Prev / Next navigation */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 18, gap: 12 }}>
+        {prev ? (
+          <button
+            className="btn btn-outline"
+            onClick={() => navigate(`/detail/${prev}`)}
+          >
+            ◀ 上一个
+          </button>
+        ) : (
+          <div />
+        )}
+        {next && (
+          <button
+            className="btn btn-outline"
+            onClick={() => navigate(`/detail/${next}`)}
+          >
+            下一个 ▶
+          </button>
+        )}
       </div>
 
       {/* 基本信息 */}
@@ -264,39 +313,83 @@ export default function Detail() {
       <div className="section">
         <div className="section-header">
           <h3>🏢 相关企业</h3>
-          <button className="btn btn-sm btn-outline" onClick={() => toast('查看全部关联企业（演示）')}>
-            查看全部
-          </button>
+          {companies.length > 0 && (
+            <button className="btn btn-sm btn-outline" onClick={() => toast('查看全部关联企业（演示）')}>
+              查看全部
+            </button>
+          )}
         </div>
-        <div className="section-body" style={{ padding: 0 }}>
-          <div className="table-wrap company-table">
-            <table>
-              <thead>
-                <tr>
-                  <th>企业名称</th>
-                  <th>统一社会信用代码</th>
-                  <th>关联类型</th>
-                  <th>关联项目</th>
-                  <th>联系方式</th>
-                  <th>备注</th>
-                </tr>
-              </thead>
-              <tbody>
-                {companies.map((c, i) => (
-                  <tr key={i} onClick={() => toast(`查看企业详情：${c.name}`)}>
-                    <td style={{ fontWeight: 500 }}>{c.name}</td>
-                    <td style={{ color: 'var(--text-light)', fontFamily: 'monospace', fontSize: 12 }}>{c.creditCode}</td>
-                    <td><span className={`comp-tag ${c.type}`}>{c.typeLabel}</span></td>
-                    <td style={{ color: 'var(--text-light)' }}>{c.project}</td>
-                    <td style={{ color: 'var(--text-light)' }}>{c.contact}</td>
-                    <td style={{ color: 'var(--text-light)', maxWidth: 200, whiteSpace: 'normal', wordBreak: 'break-all' }}>{c.note}</td>
+        <div className="section-body" style={{ padding: companies.length === 0 ? '16px 20px' : 0 }}>
+          {companies.length === 0 ? (
+            <div style={{ textAlign: 'center', color: 'var(--text-light)', padding: '20px 0' }}>
+              暂无关联企业
+            </div>
+          ) : (
+            <div className="table-wrap company-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>企业名称</th>
+                    <th>统一社会信用代码</th>
+                    <th>关联类型</th>
+                    <th>关联项目</th>
+                    <th>联系方式</th>
+                    <th>备注</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {companies.map((c, i) => (
+                    <tr key={i} onClick={() => toast(`查看企业详情：${c.name}`)}>
+                      <td style={{ fontWeight: 500 }}>{c.name}</td>
+                      <td style={{ color: 'var(--text-light)', fontFamily: 'monospace', fontSize: 12 }}>{c.creditCode}</td>
+                      <td><span className={`comp-tag ${c.type}`}>{c.typeLabel}</span></td>
+                      <td style={{ color: 'var(--text-light)' }}>{c.project}</td>
+                      <td style={{ color: 'var(--text-light)' }}>{c.contact}</td>
+                      <td style={{ color: 'var(--text-light)', maxWidth: 200, whiteSpace: 'normal', wordBreak: 'break-all' }}>{c.note}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* 关联标注点 */}
+      {relatedMarkers.length > 0 && (
+        <div className="section">
+          <div className="section-header">
+            <h3>📍 关联标注点</h3>
+          </div>
+          <div className="section-body">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10 }}>
+              {relatedMarkers.map(rid => {
+                const related = detailDataMap[rid]
+                if (!related) return null
+                const r = related.detailInfo
+                return (
+                  <div
+                    key={rid}
+                    className="card"
+                    style={{ cursor: 'pointer', marginBottom: 0 }}
+                    onClick={() => navigate(`/detail/${rid}`)}
+                  >
+                    <div className="card-body" style={{ padding: '12px 16px' }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>{r.name}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-light)' }}>
+                        {r.id} · {r.mineralType}
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--text-light)', marginTop: 4 }}>
+                        {r.area} · {r.depth}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Verification Modal */}
       {showModal && (

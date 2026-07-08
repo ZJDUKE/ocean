@@ -30,6 +30,22 @@ export default function Dashboard() {
     { icon: '📜', value: dashboardStats.validRights, label: '矿权有效', desc: '个矿业权' },
   ]
 
+  const handleAlertClick = (a) => {
+    if (a.markerId) {
+      navigate(`/detail/${a.markerId}`)
+    } else {
+      toast(`查看详情：${a.msg}`)
+    }
+  }
+
+  const handleActivityClick = (a) => {
+    if (a.markerId) {
+      navigate(`/detail/${a.markerId}`)
+    } else {
+      toast('查看动态详情')
+    }
+  }
+
   return (
     <div className="dashboard">
       <div className="page-header">
@@ -37,14 +53,14 @@ export default function Dashboard() {
           <h1>矿产管理工作台</h1>
           <p className="page-desc">欢迎回来，今天有 <strong style={{color:'var(--accent)'}}>3</strong> 条待办事项需要处理</p>
         </div>
-        <button className="btn btn-accent" onClick={() => { toast('快捷操作已触发'); navigate('/onemap') }}>
+        <button className="btn btn-accent" onClick={() => navigate('/onemap')}>
           🗺️ 进入一张图
         </button>
       </div>
 
       <div className="stats-grid">
         {stats.map((s, i) => (
-          <div key={i} className="stat-card" onClick={() => toast(`查看${s.label}详情`)}>
+          <div key={i} className="stat-card" onClick={() => navigate('/onemap')}>
             <div className="stat-icon">{s.icon}</div>
             <div className="stat-label">{s.label}</div>
             <div className="stat-value">{s.value}</div>
@@ -61,7 +77,7 @@ export default function Dashboard() {
           </div>
           <div className="card-body" style={{padding:'12px 20px'}}>
             {alerts.map((a, i) => (
-              <div key={i} className={`alert-item ${a.type}`} onClick={() => toast(`查看详情：${a.msg}`)}>
+              <div key={i} className={`alert-item ${a.type}`} onClick={() => handleAlertClick(a)}>
                 <span className={`alert-dot ${a.type}`} />
                 <span className="alert-msg">{a.msg}</span>
                 <span className="alert-time">{a.time}</span>
@@ -77,9 +93,9 @@ export default function Dashboard() {
           </div>
           <div className="card-body" style={{padding:'8px 20px'}}>
             {activities.map((a, i) => (
-              <div key={i} className="activity-item" onClick={() => toast(`查看动态详情`)}>
+              <div key={i} className="activity-item" onClick={() => handleActivityClick(a)}>
                 <span className="activity-time">{a.time}</span>
-                <span className="activity-desc" dangerouslySetInnerHTML={{ __html: a.desc }} />
+                <span className="activity-desc">{a.desc}</span>
               </div>
             ))}
           </div>
@@ -106,14 +122,18 @@ export default function Dashboard() {
             </thead>
             <tbody>
               {explorationProjects.map((p, i) => (
-                <tr key={i} onClick={() => toast(`查看项目：${p.name}`)}>
+                <tr key={i} onClick={() => navigate(`/detail/${p.markerId}`)}>
                   <td style={{fontWeight:500}}>{p.name}</td>
                   <td style={{color:'var(--text-light)'}}>{p.location}</td>
                   <td>{p.mineral}</td>
                   <td style={{color:'var(--text-light)'}}>{p.company}</td>
                   <td><span className="tag med-conf">{p.phase}</span></td>
                   <td><span className={`tag ${p.status === '进行中' ? 'verified' : 'pending'}`}>{p.status}</span></td>
-                  <td><button className="btn btn-sm btn-outline" onClick={(e) => { e.stopPropagation(); navigate('/detail') }}>详情</button></td>
+                  <td>
+                    <button className="btn btn-sm btn-outline" onClick={(e) => { e.stopPropagation(); navigate(`/detail/${p.markerId}`) }}>
+                      详情
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -134,10 +154,13 @@ export default function Dashboard() {
               </thead>
               <tbody>
                 {reserveSummary.map((r, i) => (
-                  <tr key={i} onClick={() => toast(`查看储量详情：${r.area}`)}>
-                    <td>{r.area}</td><td style={{color:'var(--text-light)'}}>{r.mineral}</td>
+                  <tr key={i} onClick={() => navigate(`/detail/${r.markerId}`)}>
+                    <td>{r.area}</td>
+                    <td style={{color:'var(--text-light)'}}>{r.mineral}</td>
                     <td>{r.reserve}</td>
-                    <td><span style={{color: r.change.startsWith('+') ? 'var(--success)' : 'var(--text-light)'}}>{r.change}</span></td>
+                    <td>
+                      <span style={{color: r.change.startsWith('+') ? 'var(--success)' : 'var(--text-light)'}}>{r.change}</span>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -157,8 +180,9 @@ export default function Dashboard() {
               </thead>
               <tbody>
                 {rightsList.map((r, i) => (
-                  <tr key={i} onClick={() => toast(`查看矿权：${r.name}`)}>
-                    <td>{r.name}</td><td style={{color:'var(--text-light)'}}>{r.holder}</td>
+                  <tr key={i} onClick={() => navigate(`/detail/${r.markerId}`)}>
+                    <td>{r.name}</td>
+                    <td style={{color:'var(--text-light)'}}>{r.holder}</td>
                     <td style={{color:'var(--text-light)'}}>{r.expire}</td>
                     <td><span className={`tag ${r.status === '有效' ? 'verified' : 'pending'}`}>{r.status}</span></td>
                   </tr>

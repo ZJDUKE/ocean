@@ -75,7 +75,7 @@ export default function OneMap() {
   const handleDetail = (id) => {
     setSelectedMarker(null)
     toast('正在跳转至详情页...')
-    navigate('/detail')
+    navigate('/detail/' + id)
   }
 
   const handleTableRowClick = (m) => {
