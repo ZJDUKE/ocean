@@ -1,0 +1,54 @@
+.detail-page { padding-bottom: 40px; }
+
+/* Back bar */
+.back-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; font-size: 13px; }
+.back-bar a { color: var(--text-light); text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: var(--transition); cursor: pointer; }
+.back-bar a:hover { color: var(--accent); }
+.sep { color: var(--card-border); font-size: 12px; user-select: none; }
+.back-bar .location-text { color: var(--text-light); font-size: 12px; margin-left: auto; }
+
+/* Detail header */
+.detail-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; gap: 20px; }
+.dh-left h1 { font-size: 24px; font-weight: 700; display: flex; align-items: center; gap: 12px; }
+.pos-id { font-size: 13px; font-weight: 400; color: var(--text-light); background: rgba(255,255,255,.05); padding: 2px 10px; border-radius: 6px; }
+.dh-meta { display: flex; align-items: center; gap: 16px; margin-top: 8px; flex-wrap: wrap; }
+.dh-meta .stars { font-size: 16px; letter-spacing: 2px; }
+.dh-meta .stars .star-filled { color: var(--accent); }
+.dh-meta .stars .star-empty { color: rgba(255,255,255,.15); }
+.dh-right { display: flex; gap: 10px; flex-shrink: 0; }
+
+/* Evidence tabs */
+.evi-tabs { display: flex; gap: 4px; margin-bottom: 14px; background: rgba(255,255,255,.03); border-radius: 8px; padding: 3px; }
+.evi-tab { padding: 8px 18px; border-radius: 6px; font-size: 13px; cursor: pointer; transition: var(--transition); border: none; background: transparent; color: var(--text-light); display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.evi-tab:hover { background: rgba(255,255,255,.06); color: var(--text); }
+.evi-tab.active { background: rgba(245,197,66,.15); color: var(--accent); font-weight: 600; }
+.evi-count { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; font-size: 11px; font-weight: 500; background: rgba(255,255,255,.1); color: var(--text-light); }
+.evi-tab.active .evi-count { background: rgba(245,197,66,.2); color: var(--accent); }
+
+/* Evidence summary */
+.evi-summary { display: flex; gap: 24px; align-items: center; padding: 12px 16px; background: rgba(255,255,255,.02); border-radius: 8px; margin-bottom: 14px; }
+.es-item { font-size: 13px; color: var(--text-light); display: flex; align-items: center; gap: 6px; }
+.es-val { font-weight: 600; color: var(--text); }
+.es-val.good { color: var(--success); }
+
+/* Company table tags */
+.company-table .comp-tag { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 500; }
+.company-table .comp-tag.operator { background: rgba(16,185,129,.2); color: #6ee7b7; }
+.company-table .comp-tag.research { background: rgba(59,130,246,.2); color: #93c5fd; }
+.company-table .comp-tag.investor { background: rgba(245,158,11,.2); color: #fcd34d; }
+
+/* GIS mini map */
+.gis-mini { position: fixed; bottom: 24px; right: 24px; width: 320px; background: rgba(10,22,40,.97); border: 1px solid var(--card-border); border-radius: 12px; box-shadow: 0 8px 40px rgba(0,0,0,.6); overflow: hidden; z-index: 999; transform: translateY(calc(100% + 30px)); opacity: 0; transition: all .35s cubic-bezier(.4,0,.2,1); pointer-events: none; }
+.gis-mini.show { transform: translateY(0); opacity: 1; pointer-events: auto; }
+.gm-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--card-border); }
+.gm-header span { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.gm-header button { background: none; border: none; color: var(--text-light); cursor: pointer; font-size: 16px; padding: 2px 6px; border-radius: 4px; transition: var(--transition); }
+.gm-header button:hover { background: rgba(255,255,255,.08); color: var(--text); }
+.gm-map { height: 180px; background: linear-gradient(135deg, #0a1e35 0%, #0f2a4a 50%, #14345a 100%); display: flex; align-items: center; justify-content: center; position: relative; }
+.gm-map .gm-placeholder { text-align: center; color: var(--text-light); font-size: 12px; }
+.gm-map .gm-placeholder .gm-pin { font-size: 32px; margin-bottom: 6px; }
+.gm-map .coord-label { position: absolute; bottom: 8px; right: 10px; font-size: 11px; color: rgba(255,255,255,.3); }
+
+/* Evidence file link */
+.evi-file { color: var(--info); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; transition: var(--transition); }
+.evi-file:hover { color: var(--accent); }
