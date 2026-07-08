@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>海洋矿产管理系统 - 勘查开发日常监督管理</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #f0f4f8; color: #1a2332; display: flex; min-height: 100vh; }
+        :root { --primary: #7c3a0a; --primary-light: #9a4d1c; --secondary: #c47a38; --accent: #f59e0b; --bg: #f0f4f8; --card: #ffffff; --text: #1a2332; --text-light: #6b7a8f; --border: #e2e8f0; --sidebar-w: 240px; --header-h: 64px; --teal: #0d9488; --ocean: #0a4b7a; }
+        .sidebar { width: var(--sidebar-w); background: linear-gradient(180deg, #1a1206 0%, #2d1a08 100%); color: #fff; display: flex; flex-direction: column; position: fixed; top: 0; left: 0; height: 100vh; z-index: 100; }
+        .sidebar-logo { padding: 20px; border-bottom: 1px solid rgba(255,255,255,.1); display: flex; align-items: center; gap: 12px; }
+        .sidebar-logo .logo-icon { width: 36px; height: 36px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; color: #1a1206; flex-shrink: 0; }
+        .sidebar-logo span { font-size: 15px; font-weight: 600; line-height: 1.3; }
+        .sidebar-logo small { font-size: 11px; font-weight: 400; opacity: .7; display: block; }
+        .sidebar-nav { flex: 1; padding: 12px 0; overflow-y: auto; }
+        .sidebar-nav .nav-label { padding: 12px 20px 4px; font-size: 11px; text-transform: uppercase; opacity: .5; letter-spacing: 1px; }
+        .sidebar-nav a { display: flex; align-items: center; gap: 12px; padding: 10px 20px; color: rgba(255,255,255,.7); text-decoration: none; font-size: 14px; transition: all .2s; border-left: 3px solid transparent; }
+        .sidebar-nav a:hover, .sidebar-nav a.active { background: rgba(255,255,255,.1); color: #fff; }
+        .sidebar-nav a.active { border-left-color: var(--accent); }
+        .sidebar-nav a .icon { width: 20px; text-align: center; font-size: 16px; }
+        .main { margin-left: var(--sidebar-w); flex: 1; }
+        .header { height: var(--header-h); background: #fff; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 32px; position: sticky; top: 0; z-index: 50; }
+        .header-title { font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+        .header-actions { display: flex; align-items: center; gap: 20px; }
+        .header-actions .time { font-size: 13px; color: var(--text-light); }
+        .header-actions .user { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+        .header-actions .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--secondary); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; }
+        .content { padding: 24px 32px; }
+        .page-title { margin-bottom: 24px; }
+        .page-title h1 { font-size: 24px; font-weight: 700; }
+        .page-title p { color: var(--text-light); margin-top: 4px; font-size: 14px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 24px; }
+        .stat-card { background: var(--card); border-radius: 12px; padding: 16px 20px; box-shadow: 0 1px 3px rgba(0,0,0,.06); border: 1px solid var(--border); }
+        .stat-card .label { font-size: 12px; color: var(--text-light); margin-bottom: 4px; }
+        .stat-card .value { font-size: 22px; font-weight: 700; color: var(--primary); }
+        .stat-card .sub { font-size: 11px; color: var(--text-light); margin-top: 2px; }
+        .tabs { display: flex; gap: 3px; margin-bottom: 16px; background: #f1f5f9; padding: 3px; border-radius: 8px; overflow-x: auto; }
+        .tabs .tab { padding: 8px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; border: none; background: transparent; color: var(--text-light); font-weight: 500; white-space: nowrap; transition: all .2s; }
+        .tabs .tab.active { background: #fff; color: var(--primary); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .card { background: var(--card); border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.06); border: 1px solid var(--border); overflow: hidden; margin-bottom: 16px; }
+        .card-header { padding: 14px 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .card-header h3 { font-size: 15px; font-weight: 600; }
+        .card-header .badge { font-size: 12px; background: #fef3c7; color: #92400e; padding: 2px 10px; border-radius: 12px; }
+        .card-body { padding: 16px 24px; }
+        .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .row-equal { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .row-three { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        table th { text-align: left; padding: 8px 10px; color: var(--text-light); font-weight: 500; border-bottom: 1px solid var(--border); font-size: 12px; }
+        table td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+        table tr:last-child td { border-bottom: none; }
+        .tag { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 4px; }
+        .tag.gold { background: #fef3c7; color: #92400e; }
+        .tag.teal { background: #ccfbf1; color: #0d9488; }
+        .tag.blue { background: #e8f4fd; color: var(--ocean); }
+        .tag.purple { background: #ede9fe; color: #5b21b6; }
+        .tag.red { background: #fee2e2; color: #991b1b; }
+        .tag.green { background: #d1fae5; color: #065f46; }
+        .status { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 2px 10px; border-radius: 12px; }
+        .status.ok { background: #d1fae5; color: #065f46; }
+        .status.warn { background: #fef3c7; color: #92400e; }
+        .status.alert { background: #fee2e2; color: #991b1b; }
+        .btn { display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px; border-radius: 6px; font-size: 12px; border: 1px solid var(--border); background: #fff; cursor: pointer; color: var(--text); transition: all .2s; }
+        .btn:hover { background: #f1f5f9; }
+        .btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+        .btn-primary:hover { background: var(--primary-light); }
+        .btn-sm { padding: 3px 8px; font-size: 11px; }
+        .toolbar { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+        .toolbar .search-box { display: flex; align-items: center; border: 1px solid var(--border); border-radius: 6px; padding: 0 10px; background: #fff; }
+        .toolbar .search-box input { border: none; outline: none; padding: 6px 8px; font-size: 13px; width: 180px; }
+        .chart-container { height: 200px; position: relative; }
+        .map-preview { height: 280px; background: linear-gradient(135deg, #e8f4fd 0%, #fef3c7 100%); border-radius: 8px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; border: 1px solid var(--border); }
+        .map-preview .map-placeholder { text-align: center; color: var(--text-light); }
+        .map-preview .map-placeholder .mp-icon { font-size: 48px; margin-bottom: 8px; opacity: .4; }
+        .map-legend { position: absolute; bottom: 12px; left: 12px; background: rgba(255,255,255,.9); border-radius: 8px; padding: 10px 14px; font-size: 11px; }
+        .map-legend .legend-item { display: flex; align-items: center; gap: 6px; }
+        .map-legend .dot { width: 8px; height: 8px; border-radius: 50%; }
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .info-card { padding: 14px; border: 1px solid var(--border); border-radius: 8px; background: #f8fafc; }
+        .info-card .ic-label { font-size: 12px; color: var(--text-light); margin-bottom: 4px; }
+        .info-card .ic-value { font-size: 18px; font-weight: 600; }
+        .alert-row { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border-radius: 6px; margin-bottom: 8px; font-size: 13px; }
+        .alert-row.urgent { background: #fef2f2; border-left: 3px solid #ef4444; }
+        .alert-row.warn { background: #fffbeb; border-left: 3px solid #f59e0b; }
+        .alert-row.info { background: #eff6ff; border-left: 3px solid #3b82f6; }
+        .file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+        .file-card { text-align: center; padding: 16px 12px; border: 1px solid var(--border); border-radius: 8px; background: #f8fafc; cursor: pointer; transition: all .2s; }
+        .file-card:hover { border-color: var(--accent); background: #fffbeb; }
+        .file-card .fc-icon { font-size: 28px; margin-bottom: 8px; }
+        .file-card .fc-name { font-size: 12px; font-weight: 500; word-break: break-all; }
+        .file-card .fc-size { font-size: 11px; color: var(--text-light); margin-top: 4px; }
+        .timeline { position: relative; padding-left: 20px; }
+        .timeline::before { content: ''; position: absolute; left: 7px; top: 0; bottom: 0; width: 2px; background: var(--border); }
+        .timeline-item { position: relative; padding: 6px 0 14px 16px; font-size: 13px; }
+        .timeline-item::before { content: ''; position: absolute; left: -17px; top: 10px; width: 10px; height: 10px; border-radius: 50%; background: var(--secondary); }
+        .timeline-item .ti-time { font-size: 11px; color: var(--text-light); }
+        @media (max-width: 1200px) { .stats-grid { grid-template-columns: repeat(3, 1fr); } .row, .row-equal, .row-three { grid-template-columns: 1fr; } }
+        @media (max-width: 768px) { .sidebar { width: 60px; } .sidebar-logo span, .sidebar-nav a span, .sidebar-nav .nav-label { display: none; } .main { margin-left: 60px; } .content { padding: 16px; } .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="sidebar-logo">
+        <div class="logo-icon">⛏</div>
+        <div><span>海洋矿产<br>管理系统</span><small>v1.0</small></div>
+    </div>
+    <nav class="sidebar-nav">
+        <div class="nav-label">概览</div>
+        <a href="mineral-dashboard.html"><span class="icon">📊</span><span>工作台</span></a>
+        <div class="nav-label">业务模块</div>
+        <a href="mineral-exploration.html" class="active"><span class="icon">🔍</span><span>勘查开发监督管理</span></a>
+        <a href="mineral-reserves.html"><span class="icon">📦</span><span>矿产储量管理</span></a>
+        <a href="mineral-rights.html"><span class="icon">📜</span><span>矿业权管理</span></a>
+        <div class="nav-label">快捷返回</div>
+        <a href="dashboard.html"><span class="icon">🏠</span><span>返回智慧海洋平台</span></a>
+    </nav>
+</div>
+
+<div class="main">
+    <div class="header">
+        <div class="header-title">🔍 勘查开发日常监督管理</div>
+        <div class="header-actions">
+            <span class="time" id="currentTime"></span>
+            <div class="user">
+                <div class="avatar">张</div>
+                <span>张海洋 · 矿产管理员</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="page-title">
+            <h1>勘查开发日常监督管理</h1>
+            <p>集成矿产分布展示、项目信息管理、资源储量统计、监督管理、环境分析与应急响应，实现海洋矿产勘查活动全链路监督。</p>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card"><div class="label">勘查项目总数</div><div class="value">12</div><div class="sub">进行中 6 · 已完成 6</div></div>
+            <div class="stat-card"><div class="label">矿产区块</div><div class="value">24</div><div class="sub">油气 10 · 固矿 14</div></div>
+            <div class="stat-card"><div class="label">监测站点</div><div class="value">8</div><div class="sub">全部在线</div></div>
+            <div class="stat-card"><div class="label">环境警告</div><div class="value">1</div><div class="sub">三亚湾pH异常</div></div>
+            <div class="stat-card"><div class="label">灾险情记录</div><div class="value">3</div><div class="sub">本年度累计</div></div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('m1')">🗺️ 矿产分布</button>
+            <button class="tab" onclick="switchTab('m2')">📋 项目信息管理</button>
+            <button class="tab" onclick="switchTab('m3')">📊 资源储量统计</button>
+            <button class="tab" onclick="switchTab('m4')">🛡️ 监督管理</button>
+            <button class="tab" onclick="switchTab('m5')">🌿 环境分析</button>
+            <button class="tab" onclick="switchTab('m6')">🚨 应急响应</button>
+        </div>
+
+        <!-- Tab 1: 矿产分布 -->
+        <div id="m1" class="tab-content active">
+            <div class="row-equal">
+                <div class="card">
+                    <div class="card-header"><h3>矿产分布地图</h3><span class="badge">GIS 可视化</span></div>
+                    <div class="card-body">
+                        <div class="map-preview">
+                            <div class="map-placeholder">
+                                <div class="mp-icon">🗺️</div>
+                                <div style="font-size:14px;font-weight:600">海洋矿产二三维GIS分布图</div>
+                                <div style="font-size:12px;margin-top:4px">集成展示海底地形、矿产分布、地球物理数据</div>
+                            </div>
+                            <div class="map-legend">
+                                <div style="font-weight:600;margin-bottom:4px">图例</div>
+                                <div class="legend-item"><span class="dot" style="background:#f59e0b"></span> 石油天然气区块</div>
+                                <div class="legend-item"><span class="dot" style="background:#8b5cf6"></span> 海砂矿区</div>
+                                <div class="legend-item"><span class="dot" style="background:#10b981"></span> 天然气水合物</div>
+                                <div class="legend-item"><span class="dot" style="background:#ef4444"></span> 多金属结核</div>
+                            </div>
+                        </div>
+                        <div style="margin-top:12px;display:flex;gap:8px">
+                            <button class="btn btn-primary btn-sm">🔍 名称查询</button>
+                            <button class="btn btn-sm">📂 分类查询</button>
+                            <button class="btn btn-sm">📍 缓冲区查询</button>
+                            <button class="btn btn-sm">🗂️ 专题图叠加</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><h3>专题图叠加展示</h3><span class="badge">多图层</span></div>
+                    <div class="card-body">
+                        <div style="margin-bottom:16px;font-size:13px;font-weight:600">可用专题图层</div>
+                        <table>
+                            <thead><tr><th>图层名称</th><th>类型</th><th>可见</th><th>透明度</th></tr></thead>
+                            <tbody>
+                                <tr><td>海底地形地貌图</td><td><span class="tag blue">地形</span></td><td><span class="status ok">● 显示</span></td><td><input type="range" value="80" style="width:80px"></td></tr>
+                                <tr><td>地质专题图</td><td><span class="tag purple">地质</span></td><td><span class="status ok">● 显示</span></td><td><input type="range" value="70" style="width:80px"></td></tr>
+                                <tr><td>沉积物类型图</td><td><span class="tag teal">环境</span></td><td><span class="status ok">● 显示</span></td><td><input type="range" value="60" style="width:80px"></td></tr>
+                                <tr><td>新生代盆地分布图</td><td><span class="tag gold">构造</span></td><td><span class="status warn">● 隐藏</span></td><td><input type="range" value="50" style="width:80px"></td></tr>
+                            </tbody>
+                        </table>
+                        <div style="margin-top:16px;font-size:13px;font-weight:600;margin-bottom:8px">矿产类型分布统计</div>
+                        <div class="chart-container"><canvas id="mineralDistChart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header"><h3>海洋固体矿产资源调查数据</h3><span class="badge">6 类矿产</span></div>
+                <div class="card-body">
+                    <table>
+                        <thead><tr><th>矿产类型</th><th>矿区数量</th><th>平均品位</th><th>预估储量</th><th>调查状态</th><th>最近更新</th></tr></thead>
+                        <tbody>
+                            <tr><td><span class="tag gold">滨海沙矿</span></td><td>4</td><td>富集</td><td>2,500 万吨</td><td><span class="status ok">● 已查明</span></td><td>2026-05-18</td></tr>
+                            <tr><td><span class="tag purple">多金属结核</span></td><td>2</td><td>中品位</td><td>1,200 万吨</td><td><span class="status warn">● 调查中</span></td><td>2026-04-20</td></tr>
+                            <tr><td><span class="tag red">富钴结壳</span></td><td>1</td><td>高品位</td><td>800 万吨</td><td><span class="status ok">● 已查明</span></td><td>2026-03-15</td></tr>
+                            <tr><td><span class="tag teal">热液硫化物</span></td><td>1</td><td>待评估</td><td>500 万吨</td><td><span class="status warn">● 预查中</span></td><td>2026-05-01</td></tr>
+                            <tr><td><span class="tag green">天然气水合物</span></td><td>3</td><td>高丰度</td><td>3,600 万m³</td><td><span class="status ok">● 试采中</span></td><td>2026-05-19</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 2: 项目信息管理 -->
+        <div id="m2" class="tab-content">
+            <div class="card">
+                <div class="card-header"><h3>勘查项目信息管理</h3><span class="badge">12 个项目</span></div>
+                <div class="card-body">
+                    <div class="toolbar">
+                        <button class="btn btn-primary btn-sm">＋ 新增项目</button>
+                        <button class="btn btn-sm">📥 导入</button>
+                        <button class="btn btn-sm">📤 导出</button>
+                        <div class="search-box"><input placeholder="搜索项目名称..."><span>🔍</span></div>
+                    </div>
+                    <table>
+                        <thead><tr><th>项目名称</th><th>位置/面积</th><th>矿产种类</th><th>建设单位</th><th>阶段</th><th>状态</th><th>操作</th></tr></thead>
+                        <tbody>
+                            <tr><td>琼东南盆地油气勘查</td><td>琼东南 · 3,200 km²</td><td><span class="tag gold">石油天然气</span></td><td>中海油海南分公司</td><td>详查</td><td><span class="status ok">● 进行中</span></td><td><button class="btn btn-sm">✏️</button><button class="btn btn-sm">📋</button><button class="btn btn-sm">🗑️</button></td></tr>
+                            <tr><td>三亚湾海砂资源调查</td><td>三亚 · 860 km²</td><td><span class="tag teal">海砂</span></td><td>海南地质调查院</td><td>普查</td><td><span class="status ok">● 进行中</span></td><td><button class="btn btn-sm">✏️</button><button class="btn btn-sm">📋</button><button class="btn btn-sm">🗑️</button></td></tr>
+                            <tr><td>南海天然气水合物试采</td><td>南海北部 · 1,500 km²</td><td><span class="tag green">天然气水合物</span></td><td>中科院深海所</td><td>试采</td><td><span class="status ok">● 进行中</span></td><td><button class="btn btn-sm">✏️</button><button class="btn btn-sm">📋</button><button class="btn btn-sm">🗑️</button></td></tr>
+                            <tr><td>西沙多金属结核调查</td><td>西沙 · 2,100 km²</td><td><span class="tag purple">多金属结核</span></td><td>自然资源部海调中心</td><td>预查</td><td><span class="status warn">● 筹备中</span></td><td><button class="btn btn-sm">✏️</button><button class="btn btn-sm">📋</button><button class="btn btn-sm">🗑️</button></td></tr>
+                            <tr><td>莺歌海盆地油气详查</td><td>莺歌海 · 2,800 km²</td><td><span class="tag gold">石油天然气</span></td><td>中海油海南分公司</td><td>详查</td><td><span class="status ok">● 进行中</span></td><td><button class="btn btn-sm">✏️</button><button class="btn btn-sm">📋</button><button class="btn btn-sm">🗑️</button></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="row-equal">
+                <div class="card">
+                    <div class="card-header"><h3>📄 文档资料管理</h3><span class="badge">项目关联</span></div>
+                    <div class="card-body">
+                        <div class="file-grid">
+                            <div class="file-card"><div class="fc-icon">📄</div><div class="fc-name">琼东南勘查设计书.pdf</div><div class="fc-size">12.5 MB</div></div>
+                            <div class="file-card"><div class="fc-icon">🗺️</div><div class="fc-name">三亚湾海砂分布图.tif</div><div class="fc-size">85.2 MB</div></div>
+                            <div class="file-card"><div class="fc-icon">📊</div><div class="fc-name">试采数据分析报表.xlsx</div><div class="fc-size">3.8 MB</div></div>
+                            <div class="file-card"><div class="fc-icon">🎥</div><div class="fc-name">勘查现场录像.mp4</div><div class="fc-size">256 MB</div></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><h3>📈 项目统计分析</h3><span class="badge">多维度</span></div>
+                    <div class="card-body">
+                        <div class="chart-container"><canvas id="projectStatChart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 3: 资源储量统计 -->
+        <div id="m3" class="tab-content">
+            <div class="row-equal">
+                <div class="card">
+                    <div class="card-header"><h3>资源储量填报管理</h3><span class="badge">最新数据</span></div>
+                    <div class="card-body">
+                        <div class="toolbar">
+                            <button class="btn btn-primary btn-sm">＋ 新增储量</button>
+                            <button class="btn btn-sm">📥 导入</button>
+                            <button class="btn btn-sm">📤 导出</button>
+                        </div>
+                        <table>
+                            <thead><tr><th>矿产类型</th><th>储量区域</th><th>探明储量</th><th>可采量</th><th>填报日期</th><th>状态</th></tr></thead>
+                            <tbody>
+                                <tr><td><span class="tag gold">石油</span></td><td>琼东南A区</td><td>1.2亿t</td><td>4,500万t</td><td>2026-05-19</td><td><span class="status ok">● 已审核</span></td></tr>
+                                <tr><td><span class="tag gold">天然气</span></td><td>莺歌海B区</td><td>8,600亿m³</td><td>3,200亿m³</td><td>2026-05-18</td><td><span class="status ok">● 已审核</span></td></tr>
+                                <tr><td><span class="tag teal">海砂</span></td><td>三亚湾C区</td><td>1,800万t</td><td>1,200万t</td><td>2026-05-17</td><td><span class="status warn">● 待审核</span></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><h3>储量动态监控</h3><span class="badge">实时变动</span></div>
+                    <div class="card-body">
+                        <div class="chart-container"><canvas id="reserveMonitorChart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header"><h3>储量报表</h3><span class="badge">自动化生成</span></div>
+                <div class="card-body">
+                    <table>
+                        <thead><tr><th>报表名称</th><th>类型</th><th>生成时间</th><th>格式</th><th>状态</th><th>操作</th></tr></thead>
+                        <tbody>
+                            <tr><td>2025年度矿产储量台账</td><td>年度报表</td><td>2026-01-05</td><td>PDF / Excel</td><td><span class="status ok">● 已归档</span></td><td><button class="btn btn-sm">📥</button></td></tr>
+                            <tr><td>2026年Q1储量变动附表</td><td>季度报表</td><td>2026-04-02</td><td>PDF / Excel</td><td><span class="status ok">● 已归档</span></td><td><button class="btn btn-sm">📥</button></td></tr>
+                            <tr><td>2026年5月储量月报</td><td>月度报表</td><td>2026-05-19</td><td>PDF / Excel</td><td><span class="status ok">● 已生成</span></td><td><button class="btn btn-sm">📥</button></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 4: 监督管理 -->
+        <div id="m4" class="tab-content">
+            <div class="row-equal">
+                <div class="card">
+                    <div class="card-header"><h3>实时监控与报告</h3><span class="badge">24/7</span></div>
+                    <div class="card-body">
+                        <div class="info-grid">
+                            <div class="info-card"><div class="ic-label">🔬 环境数据采集</div><div class="ic-value" style="color:#10b981">正常</div><div style="font-size:11px;color:var(--text-light)">8个站点 · 更新间隔5min</div></div>
+                            <div class="info-card"><div class="ic-label">⚙️ 操作数据采集</div><div class="ic-value" style="color:#10b981">正常</div><div style="font-size:11px;color:var(--text-light)">3个作业区</div></div>
+                            <div class="info-card"><div class="ic-label">🛡️ 安全数据采集</div><div class="ic-value" style="color:#f59e0b">注意</div><div style="font-size:11px;color:var(--text-light)">1项安全提示</div></div>
+                            <div class="info-card"><div class="ic-label">📡 数据传输链路</div><div class="ic-value" style="color:#10b981">正常</div><div style="font-size:11px;color:var(--text-light)">延迟 120ms</div></div>
+                        </div>
+                        <div style="margin-top:12px">
+                            <div class="alert-row info"><span>ℹ️</span><span><strong>琼东南A区：</strong>钻进进度正常，今日进尺128米，累计3,240米</span></div>
+                            <div class="alert-row warn"><span>⚠️</span><span><strong>三亚湾C区：</strong>采砂量已接近月度计划上限，建议关注</span></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><h3>环境影响评估</h3><span class="badge">动态评估</span></div>
+                    <div class="card-body">
+                        <div style="font-size:13px;font-weight:600;margin-bottom:8px">正在进行的评估</div>
+                        <table>
+                            <thead><tr><th>项目名称</th><th>评估类型</th><th>风险等级</th><th>进度</th></tr></thead>
+                            <tbody>
+                                <tr><td>琼东南盆地勘查环评</td><td>勘探阶段环评</td><td><span style="color:#f59e0b">中等</span></td><td>85%</td></tr>
+                                <tr><td>三亚湾海砂开采环评</td><td>开发阶段环评</td><td><span style="color:#ef4444">较高</span></td><td>60%</td></tr>
+                                <tr><td>天然气水合物试采环评</td><td>试采阶段环评</td><td><span style="color:#f59e0b">中等</span></td><td>72%</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 5: 环境分析 -->
+        <div id="m5" class="tab-content">
+            <div class="row-equal">
+                <div class="card">
+                    <div class="card-header"><h3>海洋环境监测数据</h3><span class="badge">8个站点</span></div>
+                    <div class="card-body">
+                        <table>
+                            <thead><tr><th>监测站点</th><th>水温(℃)</th><th>盐度(PSU)</th><th>pH值</th><th>溶解氧</th><th>更新时间</th></tr></thead>
+                            <tbody>
+                                <tr><td>秀英站</td><td>26.8</td><td>32.5</td><td>8.12</td><td>6.8</td><td>08:30</td></tr>
+                                <tr><td>洋浦站</td><td>27.1</td><td>32.2</td><td>8.08</td><td>6.5</td><td>08:30</td></tr>
+                                <tr><td>三亚站</td><td>28.2</td><td>33.1</td><td style="color:#ef4444">7.85</td><td>6.2</td><td>08:25</td></tr>
+                                <tr><td>莺歌海站</td><td>27.5</td><td>32.8</td><td>8.05</td><td>6.6</td><td>08:30</td></tr>
+                                <tr><td>清澜站</td><td>26.9</td><td>31.8</td><td>8.10</td><td>6.9</td><td>08:28</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><h3>监测数据趋势</h3><span class="badge">水温/pH</span></div>
+                    <div class="card-body">
+                        <div class="chart-container"><canvas id="envTrendChart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+            <div class="row-equal">
+                <div class="card">
+                    <div class="card-header"><h3>专项调查数据管理</h3><span class="badge">3 项调查</span></div>
+                    <div class="card-body">
+                        <div class="toolbar">
+                            <button class="btn btn-primary btn-sm">＋ 新增调查</button>
+                            <button class="btn btn-sm">📤 导出</button>
+                        </div>
+                        <table>
+                            <thead><tr><th>调查名称</th><th>调查类型</th><th>调查日期</th><th>数据量</th><th>状态</th></tr></thead>
+                            <tbody>
+                                <tr><td>三亚湾废弃物倾倒场调查</td><td>废弃物倾倒场</td><td>2026-03-15</td><td>1,280条</td><td><span class="status ok">● 已完成</span></td></tr>
+                                <tr><td>琼东南海岸工程环境评价</td><td>海岸工程</td><td>2026-04-20</td><td>850条</td><td><span class="status ok">● 已完成</span></td></tr>
+                                <tr><td>莺歌海资源开发环评调查</td><td>资源开发</td><td>2026-05-01</td><td>620条</td><td><span class="status warn">● 进行中</span></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><h3>🔮 趋势预测分析</h3><span class="badge">AI预测</span></div>
+                    <div class="card-body">
+                        <div class="chart-container"><canvas id="predictChart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 6: 应急响应 -->
+        <div id="m6" class="tab-content">
+            <div class="row-equal">
+                <div class="card">
+                    <div class="card-header"><h3>灾险情信息综合管理</h3><span class="badge">3条记录</span></div>
+                    <div class="card-body">
+                        <div class="toolbar">
+                            <button class="btn btn-primary btn-sm">＋ 新增灾险情</button>
+                            <button class="btn btn-sm">📤 上报</button>
+                        </div>
+                        <div class="alert-row urgent"><span>🔴</span><div><strong>油污泄漏事故</strong> — 琼东南B平台 · 2026-03-12<br><span style="font-size:11px;color:var(--text-light)">上报人：王安全 · 138xxxx6789 · 已处置</span></div></div>
+                        <div class="alert-row warn"><span>🟡</span><div><strong>采砂区边坡滑坡预警</strong> — 三亚湾C区 · 2026-04-08<br><span style="font-size:11px;color:var(--text-light)">上报人：李监测 · 139xxxx8901 · 监控中</span></div></div>
+                        <div class="alert-row info"><span>🔵</span><div><strong>台风预警响应</strong> — 莺歌海作业区 · 2026-05-15<br><span style="font-size:11px;color:var(--text-light)">上报人：张应急 · 137xxxx3456 · 人员已撤离</span></div></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><h3>灾险情查询与统计</h3><span class="badge">历史数据</span></div>
+                    <div class="card-body">
+                        <div class="toolbar">
+                            <div class="search-box"><input placeholder="按地点/类型搜索..."><span>🔍</span></div>
+                            <select style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px">
+                                <option>全部类型</option><option>油污泄漏</option><option>地质灾害</option><option>台风灾害</option>
+                            </select>
+                        </div>
+                        <div class="info-grid">
+                            <div class="info-card"><div class="ic-label">📊 累计灾险情</div><div class="ic-value">3</div><div style="font-size:11px;color:var(--text-light)">本年度</div></div>
+                            <div class="info-card"><div class="ic-label">✅ 已处置</div><div class="ic-value" style="color:#10b981">2</div><div style="font-size:11px;color:var(--text-light)">处置率 66.7%</div></div>
+                            <div class="info-card"><div class="ic-label">⏱️ 平均响应</div><div class="ic-value" style="color:#f59e0b">2.3h</div><div style="font-size:11px;color:var(--text-light)">目标 ≤ 2h</div></div>
+                            <div class="info-card"><div class="ic-label">📋 预案数量</div><div class="ic-value">5</div><div style="font-size:11px;color:var(--text-light)">已生效</div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header"><h3>应急处置时间线</h3><span class="badge">最近事件</span></div>
+                <div class="card-body">
+                    <div class="timeline">
+                        <div class="timeline-item">
+                            <div><strong>台风预警响应 — 莺歌海作业区</strong></div>
+                            <div class="ti-time">2026-05-15 14:00 预警发布 → 15:30 人员撤离完成 → 16:00 设备加固 → 05-16 08:00 恢复正常</div>
+                        </div>
+                        <div class="timeline-item">
+                            <div><strong>采砂区边坡滑坡预警 — 三亚湾C区</strong></div>
+                            <div class="ti-time">2026-04-08 09:30 预警触发 → 10:00 现场勘查 → 持续监控中</div>
+                        </div>
+                        <div class="timeline-item">
+                            <div><strong>油污泄漏事故 — 琼东南B平台</strong></div>
+                            <div class="ti-time">2026-03-12 06:45 事故报告 → 07:30 应急队伍到位 → 09:00 围控完成 → 12:00 清理完毕</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('currentTime').textContent = new Date().toLocaleString('zh-CN', { hour12: false });
+
+    function switchTab(id) {
+        document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+        document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+        document.getElementById(id).classList.add('active');
+        event.target.classList.add('active');
+        setTimeout(function() { window.dispatchEvent(new Event('resize')); }, 100);
+    }
+
+    // 矿产类型分布
+    new Chart(document.getElementById('mineralDistChart'), {
+        type: 'bar',
+        data: { labels: ['石油天然气', '海砂', '天然气水合物', '多金属结核', '滨海沙矿', '富钴结壳'], datasets: [{ data: [10, 4, 3, 2, 4, 1], backgroundColor: ['#f59e0b', '#8b5cf6', '#10b981', '#ef4444', '#c47a38', '#06b6d4'], borderRadius: 4, label: '区块数' }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: '#f0f4f8' }, ticks: { stepSize: 2 } }, x: { grid: { display: false } } } }
+    });
+
+    // 项目类型分布
+    new Chart(document.getElementById('projectStatChart'), {
+        type: 'doughnut',
+        data: { labels: ['油气勘查', '海砂调查', '水合物试采', '多金属调查', '环境评价'], datasets: [{ data: [4, 3, 2, 2, 1], backgroundColor: ['#f59e0b', '#8b5cf6', '#10b981', '#ef4444', '#c47a38'], borderWidth: 0 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { padding: 8, usePointStyle: true, font: { size: 11 } } } }, cutout: '55%' }
+    });
+
+    // 储量动态监控
+    new Chart(document.getElementById('reserveMonitorChart'), {
+        type: 'line',
+        data: {
+            labels: ['1月','2月','3月','4月','5月'],
+            datasets: [
+                { label: '石油 (千万吨)', data: [12.0, 11.8, 11.5, 11.3, 11.0], borderColor: '#f59e0b', tension: .3, fill: false },
+                { label: '天然气 (千亿m³)', data: [8.6, 8.5, 8.4, 8.3, 8.2], borderColor: '#10b981', tension: .3, fill: false }
+            ]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { usePointStyle: true, font: { size: 11 } } } }, scales: { y: { grid: { color: '#f0f4f8' } }, x: { grid: { display: false } } } }
+    });
+
+    // 环境监测趋势
+    new Chart(document.getElementById('envTrendChart'), {
+        type: 'line',
+        data: {
+            labels: ['00:00','04:00','08:00','12:00','16:00','20:00'],
+            datasets: [
+                { label: '水温 (℃)', data: [26.5, 26.8, 27.1, 27.5, 28.0, 27.6], borderColor: '#ef4444', tension: .3, yAxisID: 'y' },
+                { label: 'pH值', data: [8.12, 8.10, 8.05, 7.98, 7.92, 7.95], borderColor: '#3b82f6', tension: .3, yAxisID: 'y1' }
+            ]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { usePointStyle: true, font: { size: 11 } } } }, scales: { y: { type: 'linear', position: 'left', grid: { color: '#f0f4f8' }, title: { display: true, text: '水温 ℃' } }, y1: { type: 'linear', position: 'right', grid: { display: false }, min: 7.5, max: 8.5, title: { display: true, text: 'pH值' } }, x: { grid: { display: false } } } }
+    });
+
+    // 趋势预测
+    new Chart(document.getElementById('predictChart'), {
+        type: 'line',
+        data: {
+            labels: ['2020','2021','2022','2023','2024','2025','2026预'],
+            datasets: [
+                { label: '勘查活动指数', data: [65,70,78,82,88,92,96], borderColor: '#c47a38', tension: .3, fill: false },
+                { label: '环境影响指数', data: [55,58,62,68,75,82,85], borderColor: '#ef4444', tension: .3, fill: false, borderDash: [5,5] }
+            ]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { usePointStyle: true, font: { size: 11 } } } }, scales: { y: { min: 40, max: 100, grid: { color: '#f0f4f8' } }, x: { grid: { display: false } } } }
+    });
+</script>
+</body>
+</html>

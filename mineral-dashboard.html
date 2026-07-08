@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>海洋矿产管理系统 - 工作台</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #f0f4f8; color: #1a2332; display: flex; min-height: 100vh; }
+        :root { --primary: #7c3a0a; --primary-light: #9a4d1c; --secondary: #c47a38; --accent: #f59e0b; --bg: #f0f4f8; --card: #ffffff; --text: #1a2332; --text-light: #6b7a8f; --border: #e2e8f0; --sidebar-w: 240px; --header-h: 64px; --teal: #0d9488; --ocean: #0a4b7a; }
+        .sidebar { width: var(--sidebar-w); background: linear-gradient(180deg, #1a1206 0%, #2d1a08 100%); color: #fff; display: flex; flex-direction: column; position: fixed; top: 0; left: 0; height: 100vh; z-index: 100; }
+        .sidebar-logo { padding: 20px; border-bottom: 1px solid rgba(255,255,255,.1); display: flex; align-items: center; gap: 12px; }
+        .sidebar-logo .logo-icon { width: 36px; height: 36px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; color: #1a1206; flex-shrink: 0; }
+        .sidebar-logo span { font-size: 15px; font-weight: 600; line-height: 1.3; }
+        .sidebar-logo small { font-size: 11px; font-weight: 400; opacity: .7; display: block; }
+        .sidebar-nav { flex: 1; padding: 12px 0; overflow-y: auto; }
+        .sidebar-nav .nav-label { padding: 12px 20px 4px; font-size: 11px; text-transform: uppercase; opacity: .5; letter-spacing: 1px; }
+        .sidebar-nav a { display: flex; align-items: center; gap: 12px; padding: 10px 20px; color: rgba(255,255,255,.7); text-decoration: none; font-size: 14px; transition: all .2s; border-left: 3px solid transparent; }
+        .sidebar-nav a:hover, .sidebar-nav a.active { background: rgba(255,255,255,.1); color: #fff; }
+        .sidebar-nav a.active { border-left-color: var(--accent); }
+        .sidebar-nav a .icon { width: 20px; text-align: center; font-size: 16px; }
+        .sidebar-nav .sub-link { padding-left: 48px; font-size: 13px; }
+        .main { margin-left: var(--sidebar-w); flex: 1; }
+        .header { height: var(--header-h); background: #fff; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 32px; position: sticky; top: 0; z-index: 50; }
+        .header-title { font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+        .header-title .sys-badge { font-size: 11px; background: linear-gradient(135deg, var(--accent), #f97316); color: #fff; padding: 3px 10px; border-radius: 10px; }
+        .header-actions { display: flex; align-items: center; gap: 20px; }
+        .header-actions .time { font-size: 13px; color: var(--text-light); }
+        .header-actions .user { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+        .header-actions .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--secondary); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; }
+        .content { padding: 24px 32px; }
+        .welcome { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .welcome h1 { font-size: 24px; font-weight: 700; }
+        .welcome p { color: var(--text-light); margin-top: 4px; font-size: 14px; }
+        .welcome .date-badge { background: var(--primary); color: #fff; padding: 8px 16px; border-radius: 8px; font-size: 13px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+        .stat-card { background: var(--card); border-radius: 12px; padding: 20px 24px; box-shadow: 0 1px 3px rgba(0,0,0,.06); border: 1px solid var(--border); }
+        .stat-card .label { font-size: 13px; color: var(--text-light); margin-bottom: 8px; }
+        .stat-card .value { font-size: 28px; font-weight: 700; color: var(--primary); }
+        .stat-card .change { font-size: 12px; margin-top: 4px; }
+        .stat-card .change.up { color: #10b981; }
+        .stat-card .stat-icon { float: right; font-size: 32px; opacity: .15; }
+        .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+        .row-full { display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 24px; }
+        .card { background: var(--card); border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.06); border: 1px solid var(--border); overflow: hidden; }
+        .card-header { padding: 16px 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .card-header h3 { font-size: 15px; font-weight: 600; }
+        .card-header .badge { font-size: 12px; background: #fef3c7; color: #92400e; padding: 2px 10px; border-radius: 12px; }
+        .card-body { padding: 20px 24px; }
+        .card-body table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .card-body table th { text-align: left; padding: 8px 12px; color: var(--text-light); font-weight: 500; border-bottom: 1px solid var(--border); }
+        .card-body table td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+        .card-body table tr:last-child td { border-bottom: none; }
+        .status { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 2px 10px; border-radius: 12px; }
+        .status.ok { background: #d1fae5; color: #065f46; }
+        .status.warn { background: #fef3c7; color: #92400e; }
+        .tag { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 4px; }
+        .tag.gold { background: #fef3c7; color: #92400e; }
+        .tag.teal { background: #ccfbf1; color: #0d9488; }
+        .tag.blue { background: #e8f4fd; color: var(--ocean); }
+        .tag.purple { background: #ede9fe; color: #5b21b6; }
+        .chart-container { height: 220px; position: relative; }
+        .module-nav { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+        .module-card { background: var(--card); border-radius: 12px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,.06); border: 1px solid var(--border); cursor: pointer; transition: all .25s; text-decoration: none; color: inherit; display: block; }
+        .module-card:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(0,0,0,.1); border-color: var(--accent); }
+        .module-card .mc-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 14px; }
+        .module-card .mc-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+        .module-card .mc-desc { font-size: 13px; color: var(--text-light); line-height: 1.5; margin-bottom: 12px; }
+        .module-card .mc-stats { display: flex; gap: 16px; }
+        .module-card .mc-stat { font-size: 12px; color: var(--text-light); }
+        .module-card .mc-stat strong { color: var(--text); font-size: 16px; }
+        .activity-list { font-size: 13px; }
+        .activity-item { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+        .activity-item:last-child { border-bottom: none; }
+        .activity-item .time { color: var(--text-light); white-space: nowrap; font-size: 12px; width: 48px; }
+        .activity-item .desc { flex: 1; }
+        .activity-item .desc strong { font-weight: 600; }
+        .alert-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 6px; margin-bottom: 8px; background: #fef2f2; font-size: 13px; }
+        .alert-row.warn { background: #fffbeb; }
+        .alert-row.info { background: #eff6ff; }
+        .alert-row .ar-icon { font-size: 16px; flex-shrink: 0; }
+        @media (max-width: 1200px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } .row { grid-template-columns: 1fr; } .module-nav { grid-template-columns: 1fr; } }
+        @media (max-width: 768px) { .sidebar { width: 60px; } .sidebar-logo span, .sidebar-nav a span, .sidebar-nav .nav-label { display: none; } .main { margin-left: 60px; } .stats-grid { grid-template-columns: 1fr; } .content { padding: 16px; } }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="sidebar-logo">
+        <div class="logo-icon">⛏</div>
+        <div><span>海洋矿产<br>管理系统</span><small>v1.0</small></div>
+    </div>
+    <nav class="sidebar-nav">
+        <div class="nav-label">概览</div>
+        <a href="mineral-dashboard.html" class="active"><span class="icon">📊</span><span>工作台</span></a>
+        <div class="nav-label">业务模块</div>
+        <a href="mineral-exploration.html"><span class="icon">🔍</span><span>勘查开发监督管理</span></a>
+        <a href="mineral-reserves.html"><span class="icon">📦</span><span>矿产储量管理</span></a>
+        <a href="mineral-rights.html"><span class="icon">📜</span><span>矿业权管理</span></a>
+        <div class="nav-label">快捷返回</div>
+        <a href="dashboard.html"><span class="icon">🏠</span><span>返回智慧海洋平台</span></a>
+    </nav>
+</div>
+
+<div class="main">
+    <div class="header">
+        <div class="header-title">
+            ⛏️ 海洋矿产管理系统 · 工作台
+            <span class="sys-badge">v1.0</span>
+        </div>
+        <div class="header-actions">
+            <span class="time" id="currentTime"></span>
+            <div class="user">
+                <div class="avatar">张</div>
+                <span>张海洋 · 矿产管理员</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="welcome">
+            <div>
+                <h1>海洋矿产管理系统总览 ⛏️</h1>
+                <p>覆盖勘查开发监督、储量管理与矿业权管理三大核心业务，实时掌握海洋矿产资源全貌。</p>
+            </div>
+            <div class="date-badge" id="dateBadge"></div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">🗺️</div>
+                <div class="label">矿产区块总数</div>
+                <div class="value">24</div>
+                <div class="change up">↑ 勘查中 6 个 · 已探明 8 个</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📦</div>
+                <div class="label">累计探明储量</div>
+                <div class="value">4.8亿t</div>
+                <div class="change up">↑ 较上年增长 8.2%</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📜</div>
+                <div class="label">有效矿权数量</div>
+                <div class="value">18</div>
+                <div class="change up">↑ 探矿权 8 · 采矿权 10</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🔬</div>
+                <div class="label">年度勘查投入</div>
+                <div class="value">4.2亿</div>
+                <div class="change up">↑ 较上年增长 15.6%</div>
+            </div>
+        </div>
+
+        <div class="module-nav">
+            <a href="mineral-exploration.html" class="module-card">
+                <div class="mc-icon" style="background:#e8f4fd;color:#0a4b7a">🔍</div>
+                <div class="mc-title">勘查开发日常监督管理</div>
+                <div class="mc-desc">矿产分布展示、项目信息管理、环境分析、应急响应等6个子模块</div>
+                <div class="mc-stats">
+                    <div class="mc-stat"><strong>12</strong> 勘查项目</div>
+                    <div class="mc-stat"><strong>6</strong> 模块</div>
+                    <div class="mc-stat"><strong>实时</strong> 监控中</div>
+                </div>
+            </a>
+            <a href="mineral-reserves.html" class="module-card">
+                <div class="mc-icon" style="background:#d1fae5;color:#10b981">📦</div>
+                <div class="mc-title">海洋矿产储量管理</div>
+                <div class="mc-desc">储量数据管理、三维地质模型、储量统计与报表输出等4个子模块</div>
+                <div class="mc-stats">
+                    <div class="mc-stat"><strong>8</strong> 储量台账</div>
+                    <div class="mc-stat"><strong>4</strong> 模块</div>
+                    <div class="mc-stat"><strong>三维</strong> 可视化</div>
+                </div>
+            </a>
+            <a href="mineral-rights.html" class="module-card">
+                <div class="mc-icon" style="background:#fef3c7;color:#f59e0b">📜</div>
+                <div class="mc-title">海洋矿业权管理</div>
+                <div class="mc-desc">政务服务对接、登记审批、监督管理、信息查询等5个子模块</div>
+                <div class="mc-stats">
+                    <div class="mc-stat"><strong>18</strong> 矿权</div>
+                    <div class="mc-stat"><strong>5</strong> 模块</div>
+                    <div class="mc-stat"><strong>在线</strong> 审批</div>
+                </div>
+            </a>
+        </div>
+
+        <div class="row">
+            <div class="card">
+                <div class="card-header">
+                    <h3>⏱️ 实时告警与待办</h3>
+                    <span class="badge">4 条</span>
+                </div>
+                <div class="card-body">
+                    <div class="alert-row"><span class="ar-icon">🔴</span><span><strong>储量变更待审核</strong> — 琼海A区石油储量变动申请待审</span></div>
+                    <div class="alert-row warn"><span class="ar-icon">🟡</span><span><strong>环境监测异常</strong> — 三亚湾海砂矿区pH值微幅偏高</span></div>
+                    <div class="alert-row info"><span class="ar-icon">🔵</span><span><strong>矿权即将到期</strong> — 乐东海域探矿权将于30天后到期</span></div>
+                    <div class="alert-row warn"><span class="ar-icon">🟡</span><span><strong>勘查报告延期</strong> — 琼东南盆地勘查项目未按期提交</span></div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <h3>📊 矿产储量结构分布</h3>
+                    <span class="badge">按矿种</span>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container"><canvas id="reserveChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="card">
+                <div class="card-header">
+                    <h3>📋 最近勘查项目动态</h3>
+                    <span class="badge">实时</span>
+                </div>
+                <div class="card-body">
+                    <table>
+                        <thead><tr><th>项目名称</th><th>矿种</th><th>阶段</th><th>状态</th><th>更新时间</th></tr></thead>
+                        <tbody>
+                            <tr><td>琼东南盆地油气勘查</td><td><span class="tag gold">石油天然气</span></td><td>详查阶段</td><td><span class="status ok">● 进行中</span></td><td>2026-05-19</td></tr>
+                            <tr><td>三亚湾海砂资源调查</td><td><span class="tag teal">海砂</span></td><td>普查阶段</td><td><span class="status ok">● 进行中</span></td><td>2026-05-18</td></tr>
+                            <tr><td>南海北部天然气水合物试采</td><td><span class="tag blue">天然气水合物</span></td><td>试采阶段</td><td><span class="status ok">● 进行中</span></td><td>2026-05-19</td></tr>
+                            <tr><td>西沙海域多金属结核调查</td><td><span class="tag purple">多金属结核</span></td><td>预查阶段</td><td><span class="status warn">● 筹备中</span></td><td>2026-05-12</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <h3>📈 月度矿产勘查投入趋势</h3>
+                    <span class="badge">近6个月</span>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container"><canvas id="investChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row-full">
+            <div class="card">
+                <div class="card-header">
+                    <h3>📑 最新系统动态</h3>
+                    <span class="badge">实时</span>
+                </div>
+                <div class="card-body">
+                    <div class="activity-list">
+                        <div class="activity-item"><span class="time">09:15</span><span class="desc"><strong>矿业权审批</strong> — 琼海A区块采矿权续期申请已通过</span></div>
+                        <div class="activity-item"><span class="time">08:50</span><span class="desc"><strong>储量数据更新</strong> — 莺歌海盆地储量台账年度更新完成</span></div>
+                        <div class="activity-item"><span class="time">08:30</span><span class="desc"><strong>三维模型更新</strong> — 琼东南盆地三维地质模型重构完成</span></div>
+                        <div class="activity-item"><span class="time">08:10</span><span class="desc"><strong>环境监测</strong> — 8个固定站点环境数据已同步</span></div>
+                        <div class="activity-item"><span class="time">07:45</span><span class="desc"><strong>政务服务网</strong> — 收到2条矿业权在线申请</span></div>
+                        <div class="activity-item"><span class="time">07:00</span><span class="desc"><strong>应急响应</strong> — 系统完成灾险情预案季度演练</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function updateTime() {
+        var now = new Date();
+        document.getElementById('currentTime').textContent = now.toLocaleString('zh-CN', { hour12: false });
+        document.getElementById('dateBadge').textContent = now.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+    }
+    updateTime();
+    setInterval(updateTime, 1000);
+
+    new Chart(document.getElementById('reserveChart'), {
+        type: 'doughnut',
+        data: {
+            labels: ['石油天然气', '海砂', '天然气水合物', '多金属结核', '富钴结壳', '热液硫化物'],
+            datasets: [{ data: [45, 30, 15, 6, 2.5, 1.5], backgroundColor: ['#f59e0b', '#c47a38', '#10b981', '#ef4444', '#8b5cf6', '#06b6d4'], borderWidth: 0 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { padding: 12, usePointStyle: true } } }, cutout: '60%' }
+    });
+
+    new Chart(document.getElementById('investChart'), {
+        type: 'bar',
+        data: {
+            labels: ['12月', '1月', '2月', '3月', '4月', '5月'],
+            datasets: [
+                { label: '勘查投入 (千万元)', data: [28, 32, 35, 38, 40, 42], backgroundColor: 'rgba(196,122,56,.7)', borderRadius: 4 },
+                { label: '开发投入 (千万元)', data: [18, 20, 22, 25, 28, 30], backgroundColor: 'rgba(13,148,136,.7)', borderRadius: 4 }
+            ]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { usePointStyle: true, padding: 16 } } }, scales: { y: { beginAtZero: true, grid: { color: '#f0f4f8' } }, x: { grid: { display: false } } } }
+    });
+</script>
+</body>
+</html>

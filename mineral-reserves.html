@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>海洋矿产管理系统 - 矿产储量管理</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #f0f4f8; color: #1a2332; display: flex; min-height: 100vh; }
+        :root { --primary: #7c3a0a; --primary-light: #9a4d1c; --secondary: #c47a38; --accent: #f59e0b; --bg: #f0f4f8; --card: #ffffff; --text: #1a2332; --text-light: #6b7a8f; --border: #e2e8f0; --sidebar-w: 240px; --header-h: 64px; --teal: #0d9488; --ocean: #0a4b7a; }
+        .sidebar { width: var(--sidebar-w); background: linear-gradient(180deg, #1a1206 0%, #2d1a08 100%); color: #fff; display: flex; flex-direction: column; position: fixed; top: 0; left: 0; height: 100vh; z-index: 100; }
+        .sidebar-logo { padding: 20px; border-bottom: 1px solid rgba(255,255,255,.1); display: flex; align-items: center; gap: 12px; }
+        .sidebar-logo .logo-icon { width: 36px; height: 36px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; color: #1a1206; flex-shrink: 0; }
+        .sidebar-logo span { font-size: 15px; font-weight: 600; line-height: 1.3; }
+        .sidebar-logo small { font-size: 11px; font-weight: 400; opacity: .7; display: block; }
+        .sidebar-nav { flex: 1; padding: 12px 0; overflow-y: auto; }
+        .sidebar-nav .nav-label { padding: 12px 20px 4px; font-size: 11px; text-transform: uppercase; opacity: .5; letter-spacing: 1px; }
+        .sidebar-nav a { display: flex; align-items: center; gap: 12px; padding: 10px 20px; color: rgba(255,255,255,.7); text-decoration: none; font-size: 14px; transition: all .2s; border-left: 3px solid transparent; }
+        .sidebar-nav a:hover, .sidebar-nav a.active { background: rgba(255,255,255,.1); color: #fff; }
+        .sidebar-nav a.active { border-left-color: var(--accent); }
+        .sidebar-nav a .icon { width: 20px; text-align: center; font-size: 16px; }
+        .main { margin-left: var(--sidebar-w); flex: 1; }
+        .header { height: var(--header-h); background: #fff; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 32px; position: sticky; top: 0; z-index: 50; }
+        .header-title { font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+        .header-actions { display: flex; align-items: center; gap: 20px; }
+        .header-actions .time { font-size: 13px; color: var(--text-light); }
+        .header-actions .user { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+        .header-actions .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--secondary); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; }
+        .content { padding: 24px 32px; }
+        .page-title { margin-bottom: 24px; }
+        .page-title h1 { font-size: 24px; font-weight: 700; }
+        .page-title p { color: var(--text-light); margin-top: 4px; font-size: 14px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 24px; }
+        .stat-card { background: var(--card); border-radius: 12px; padding: 16px 20px; box-shadow: 0 1px 3px rgba(0,0,0,.06); border: 1px solid var(--border); }
+        .stat-card .label { font-size: 12px; color: var(--text-light); margin-bottom: 4px; }
+        .stat-card .value { font-size: 22px; font-weight: 700; color: var(--primary); }
+        .stat-card .sub { font-size: 11px; color: var(--text-light); margin-top: 2px; }
+        .tabs { display: flex; gap: 3px; margin-bottom: 16px; background: #f1f5f9; padding: 3px; border-radius: 8px; overflow-x: auto; }
+        .tabs .tab { padding: 8px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; border: none; background: transparent; color: var(--text-light); font-weight: 500; white-space: nowrap; transition: all .2s; }
+        .tabs .tab.active { background: #fff; color: var(--primary); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .card { background: var(--card); border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.06); border: 1px solid var(--border); overflow: hidden; margin-bottom: 16px; }
+        .card-header { padding: 14px 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .card-header h3 { font-size: 15px; font-weight: 600; }
+        .card-header .badge { font-size: 12px; background: #fef3c7; color: #92400e; padding: 2px 10px; border-radius: 12px; }
+        .card-body { padding: 16px 24px; }
+        .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .row-equal { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .row-three { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        table th { text-align: left; padding: 8px 10px; color: var(--text-light); font-weight: 500; border-bottom: 1px solid var(--border); font-size: 12px; }
+        table td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+        table tr:last-child td { border-bottom: none; }
+        .tag { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 4px; }
+        .tag.gold { background: #fef3c7; color: #92400e; }
+        .tag.teal { background: #ccfbf1; color: #0d9488; }
+        .tag.blue { background: #e8f4fd; color: var(--ocean); }
+        .tag.purple { background: #ede9fe; color: #5b21b6; }
+        .tag.green { background: #d1fae5; color: #065f46; }
+        .tag.red { background: #fee2e2; color: #991b1b; }
+        .status { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 2px 10px; border-radius: 12px; }
+        .status.ok { background: #d1fae5; color: #065f46; }
+        .status.warn { background: #fef3c7; color: #92400e; }
+        .status.alert { background: #fee2e2; color: #991b1b; }
+        .btn { display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px; border-radius: 6px; font-size: 12px; border: 1px solid var(--border); background: #fff; cursor: pointer; color: var(--text); transition: all .2s; }
+        .btn:hover { background: #f1f5f9; }
+        .btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+        .btn-primary:hover { background: var(--primary-light); }
+        .btn-sm { padding: 3px 8px; font-size: 11px; }
+        .toolbar { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+        .toolbar .search-box { display: flex; align-items: center; border: 1px solid var(--border); border-radius: 6px; padding: 0 10px; background: #fff; }
+        .toolbar .search-box input { border: none; outline: none; padding: 6px 8px; font-size: 13px; width: 180px; }
+        .chart-container { height: 200px; position: relative; }
+        .chart-container-lg { height: 280px; position: relative; }
+        .model-preview { height: 320px; background: linear-gradient(135deg, #0a1628 0%, #0d2137 50%, #1a2332 100%); border-radius: 8px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; border: 1px solid var(--border); }
+        .model-preview .model-placeholder { text-align: center; color: rgba(255,255,255,.6); }
+        .model-preview .model-placeholder .mp-icon { font-size: 60px; margin-bottom: 12px; opacity: .6; }
+        .model-tools { position: absolute; top: 12px; right: 12px; display: flex; flex-direction: column; gap: 4px; }
+        .model-tools .mt-btn { width: 32px; height: 32px; border-radius: 6px; background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.2); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 14px; transition: all .2s; }
+        .model-tools .mt-btn:hover { background: rgba(255,255,255,.25); }
+        .model-legend { position: absolute; bottom: 12px; left: 12px; background: rgba(0,0,0,.7); border-radius: 8px; padding: 10px 14px; font-size: 11px; color: rgba(255,255,255,.8); }
+        .layer-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; }
+        .layer-item { padding: 10px; border: 1px solid rgba(255,255,255,.15); border-radius: 8px; text-align: center; font-size: 12px; color: rgba(255,255,255,.7); cursor: pointer; transition: all .2s; }
+        .layer-item:hover { border-color: var(--accent); color: #fff; background: rgba(255,255,255,.05); }
+        .layer-item .li-dot { width: 8px; height: 8px; border-radius: 50%; margin: 0 auto 6px; }
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .info-card { padding: 14px; border: 1px solid var(--border); border-radius: 8px; background: #f8fafc; }
+        .info-card .ic-label { font-size: 12px; color: var(--text-light); margin-bottom: 4px; }
+        .info-card .ic-value { font-size: 18px; font-weight: 600; }
+        .code-table { margin-top: 8px; }
+        .tree-view { font-size: 13px; }
+        .tree-item { padding: 6px 8px; cursor: pointer; display: flex; align-items: center; gap: 6px; border-radius: 4px; }
+        .tree-item:hover { background: #f1f5f9; }
+        .tree-item .folder { color: #f59e0b; }
+        .tree-item .count { font-size: 11px; color: var(--text-light); margin-left: auto; }
+        .tree-children { padding-left: 20px; }
+        .report-card { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; transition: all .2s; }
+        .report-card:hover { border-color: var(--accent); background: #fffbeb; }
+        .report-card .rc-icon { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+        .report-card .rc-info { flex: 1; }
+        .report-card .rc-name { font-weight: 600; font-size: 13px; }
+        .report-card .rc-meta { font-size: 11px; color: var(--text-light); }
+        @media (max-width: 1200px) { .stats-grid { grid-template-columns: repeat(3, 1fr); } .row, .row-equal, .row-three { grid-template-columns: 1fr; } }
+        @media (max-width: 768px) { .sidebar { width: 60px; } .sidebar-logo span, .sidebar-nav a span, .sidebar-nav .nav-label { display: none; } .main { margin-left: 60px; } .content { padding: 16px; } .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="sidebar-logo">
+        <div class="logo-icon">⛏</div>
+        <div><span>海洋矿产<br>管理系统</span><small>v1.0</small></div>
+    </div>
+    <nav class="sidebar-nav">
+        <div class="nav-label">概览</div>
+        <a href="mineral-dashboard.html"><span class="icon">📊</span><span>工作台</span></a>
+        <div class="nav-label">业务模块</div>
+        <a href="mineral-exploration.html"><span class="icon">🔍</span><span>勘查开发监督管理</span></a>
+        <a href="mineral-reserves.html" class="active"><span class="icon">📦</span><span>矿产储量管理</span></a>
+        <a href="mineral-rights.html"><span class="icon">📜</span><span>矿业权管理</span></a>
+        <div class="nav-label">快捷返回</div>
+        <a href="dashboard.html"><span class="icon">🏠</span><span>返回智慧海洋平台</span></a>
+    </nav>
+</div>
+
+<div class="main">
+    <div class="header">
+        <div class="header-title">📦 海洋矿产储量管理</div>
+        <div class="header-actions">
+            <span class="time" id="currentTime"></span>
+            <div class="user">
+                <div class="avatar">张</div>
+                <span>张海洋 · 矿产管理员</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="page-title">
+            <h1>海洋矿产储量管理</h1>
+            <p>基于油气勘探开发数据，提供储量精细化管理、三维地质模型可视化、储量统计与多样化报表输出。</p>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card"><div class="label">储量区域总数</div><div class="value">12</div><div class="sub">油气 8 · 固体 4</div></div>
+            <div class="stat-card"><div class="label">累计探明储量</div><div class="value">4.8亿t</div><div class="sub">石油当量</div></div>
+            <div class="stat-card"><div class="label">年度开采量</div><div class="value">1,860万t</div><div class="sub">较上年 +5.2%</div></div>
+            <div class="stat-card"><div class="label">储量台账数</div><div class="value">8</div><div class="sub">已全部更新</div></div>
+            <div class="stat-card"><div class="label">三维模型数</div><div class="value">4</div><div class="sub">2个已完成构建</div></div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('r1')">📋 储量数据管理</button>
+            <button class="tab" onclick="switchTab('r2')">🌐 三维可视化</button>
+            <button class="tab" onclick="switchTab('r3')">📊 资源储量统计</button>
+            <button class="tab" onclick="switchTab('r4')">📑 储量报表输出</button>
+        </div>
+
+        <!-- Tab 1: 储量数据管理 -->
+        <div id="r1" class="tab-content active">
+            <div class="row-equal">
+                <div class="card">
+                    <div class="card-header"><h3>基础数据编码与标准化</h3><span class="badge">标准化编码</span></div>
+                    <div class="card-body">
+                        <div class="toolbar">
+                            <button class="btn btn-primary btn-sm">＋ 新增编码</button>
+                            <div class="search-box"><input placeholder="搜索编码..."><span>🔍</span></div>
+                        </div>
+                        <table class="code-table">
+                            <thead><tr><th>编码ID</th><th>编码名称</th><th>编码类别</th><th>所属区域</th><th>操作</th></tr></thead>
+                            <tbody>
+                                <tr><td>OGW-001</td><td>琼东南A1井</td><td><span class="tag gold">油气井</span></td><td>琼东南A区</td><td><button class="btn btn-sm">✏️</button><button class="btn btn-sm">🗑️</button></td></tr>
+                                <tr><td>HZN-001</td><td>莺歌海B2层</td><td><span class="tag blue">地层</span></td><td>莺歌海B区</td><td><button class="btn btn-sm">✏️</button><button class="btn btn-sm">🗑️</button></td></tr>
+                                <tr><td>ELV-003</td><td>-3200m水平</td><td><span class="tag purple">标高</span></td><td>琼东南A区</td><td><button class="btn btn-sm">✏️</button><button class="btn btn-sm">🗑️</button></td></tr>
+                                <tr><td>AREA-008</td><td>三亚湾C区</td><td><span class="tag teal">开采区</span></td><td>三亚湾</td><td><button class="btn btn-sm">✏️</button><button class="btn btn-sm">🗑️</button></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><h3>储量区域精细化管理</h3><span class="badge">油气类</span></div>
+                    <div class="card-body">
+                        <div class="toolbar">
+                            <button class="btn btn-primary btn-sm">＋ 新增区域</button>
+                            <button class="btn btn-sm">📤 导出</button>
+                        </div>
+                        <table>
+                            <thead><tr><th>区域名称</th><th>油气层位</th><th>标高(m)</th><th>储量(万t)</th><th>可采量(万t)</th></tr></thead>
+                            <tbody>
+                                <tr><td>琼东南A区-上段</td><td>陵水组</td><td>-2800</td><td>6,500</td><td>2,400</td></tr>
+                                <tr><td>琼东南A区-下段</td><td>三亚组</td><td>-3500</td><td>5,500</td><td>2,100</td></tr>
+                                <tr><td>莺歌海B区-Ⅰ层</td><td>黄流组</td><td>-2600</td><td>4,800</td><td>1,800</td></tr>
+                                <tr><td>莺歌海B区-Ⅱ层</td><td>莺歌海组</td><td>-3100</td><td>3,800</td><td>1,400</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="row-equal">
+                <div class="card">
+                    <div class="card-header"><h3>固体矿产区域精细化管理</h3><span class="badge">固体矿</span></div>
+                    <div class="card-body">
+                        <table>
+                            <thead><tr><th>成矿区域</th><th>矿种</th><th>地质构造</th><th>储量(万t)</th><th>品位</th></tr></thead>
+                            <tbody>
+                                <tr><td>三亚湾海砂成矿区</td><td><span class="tag teal">海砂</span></td><td>滨岸砂体</td><td>1,800</td><td>富集</td></tr>
+                                <tr><td>西沙结核成矿带</td><td><span class="tag purple">多金属结核</span></td><td>深海盆地</td><td>1,200</td><td>中品位</td></tr>
+                                <tr><td>南海北部水合物成矿区</td><td><span class="tag green">天然气水合物</span></td><td>陆坡沉积</td><td>3,600</td><td>高丰度</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><h3>台账数据管理与维护</h3><span class="badge">关键指标</span></div>
+                    <div class="card-body">
+                        <div class="info-grid">
+                            <div class="info-card"><div class="ic-label">🛢️ 油气产量</div><div class="ic-value">1,860万t</div><div style="font-size:11px;color:var(--text-light)">年度累计</div></div>
+                            <div class="info-card"><div class="ic-label">📉 储量损失</div><div class="ic-value" style="color:#ef4444">120万t</div><div style="font-size:11px;color:var(--text-light)">含废弃量</div></div>
+                            <div class="info-card"><div class="ic-label">💧 废弃量统计</div><div class="ic-value" style="color:#6b7a8f">38万t</div><div style="font-size:11px;color:var(--text-light)">累计</div></div>
+                            <div class="info-card"><div class="ic-label">📦 摊销台账</div><div class="ic-value" style="color:#10b981">已更新</div><div style="font-size:11px;color:var(--text-light)">2026-05-19</div></div>
+                        </div>
+                        <div style="margin-top:12px;font-size:13px;font-weight:600;margin-bottom:6px">储量计算与年度更新</div>
+                        <table>
+                            <thead><tr><th>区域</th><th>期初储量</th><th>本期变动</th><th>期末储量</th><th>更新状态</th></tr></thead>
+                            <tbody>
+                                <tr><td>琼东南A区</td><td>12,500万t</td><td style="color:#ef4444">-420万t</td><td>12,080万t</td><td><span class="status ok">● 已更新</span></td></tr>
+                                <tr><td>莺歌海B区</td><td>8,900万t</td><td style="color:#ef4444">-260万t</td><td>8,640万t</td><td><span class="status ok">● 已更新</span></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 2: 三维可视化 -->
+        <div id="r2" class="tab-content">
+            <div class="row-equal">
+                <div class="card">
+                    <div class="card-header"><h3>海洋三维地质模型</h3><span class="badge">GOCAD / Surpac</span></div>
+                    <div class="card-body">
+                        <div class="model-preview">
+                            <div class="model-placeholder">
+                                <div class="mp-icon">🌐</div>
+                                <div style="font-size:16px;font-weight:600;color:rgba(255,255,255,.8)">三维地质模型预览</div>
+                                <div style="font-size:12px;margin-top:8px">琼东南盆地 · 油气层位三维模型</div>
+                                <div style="font-size:11px;margin-top:4px;color:rgba(255,255,255,.3)">坐标: 109.5°E, 18.2°N · 深度范围: -2500~-4000m</div>
+                            </div>
+                            <div class="model-tools">
+                                <div class="mt-btn" title="旋转">🔄</div>
+                                <div class="mt-btn" title="缩放">🔍</div>
+                                <div class="mt-btn" title="剖切">✂️</div>
+                                <div class="mt-btn" title="重置">🏠</div>
+                            </div>
+                            <div class="model-legend">
+                                <div style="font-weight:600;margin-bottom:4px">地质层位</div>
+                                <div style="margin-bottom:2px"><span style="color:#f59e0b">■</span> 陵水组 (-2800m)</div>
+                                <div style="margin-bottom:2px"><span style="color:#10b981">■</span> 三亚组 (-3500m)</div>
+                                <div><span style="color:#8b5cf6">■</span> 黄流组 (-2600m)</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><h3>三维数据资源目录</h3><span class="badge">4个模型</span></div>
+                    <div class="card-body">
+                        <div class="toolbar">
+                            <button class="btn btn-primary btn-sm">＋ 新增模型</button>
+                            <div class="search-box"><input placeholder="搜索模型..."><span>🔍</span></div>
+                        </div>
+                        <div class="tree-view">
+                            <div class="tree-item"><span class="folder">📁</span> 海南省海洋矿产三维模型 <span class="count">4</span></div>
+                            <div class="tree-children">
+                                <div class="tree-item"><span class="folder">📁</span> 琼东南盆地油气模型 <span class="count">已完成</span></div>
+                                <div class="tree-item"><span class="folder">📁</span> 莺歌海盆地油气模型 <span class="count">构建中</span></div>
+                                <div class="tree-item"><span class="folder">📁</span> 三亚湾海砂矿区模型 <span class="count">规划中</span></div>
+                                <div class="tree-item"><span class="folder">📁</span> 南海北部水合物模型 <span class="count">已完成</span></div>
+                            </div>
+                        </div>
+                        <div style="margin-top:16px;font-size:13px;font-weight:600;margin-bottom:8px">交互浏览方式</div>
+                        <div class="layer-grid">
+                            <div class="layer-item"><div class="li-dot" style="background:#f59e0b"></div>旋转浏览</div>
+                            <div class="layer-item"><div class="li-dot" style="background:#10b981"></div>缩放查看</div>
+                            <div class="layer-item"><div class="li-dot" style="background:#8b5cf6"></div>剖面剖切</div>
+                            <div class="layer-item"><div class="li-dot" style="background:#ef4444"></div>交互查询</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header"><h3>地质勘查数据处理与建模流程</h3><span class="badge">三步流程</span></div>
+                <div class="card-body">
+                    <div style="display:flex;align-items:center;justify-content:space-around;padding:16px 0">
+                        <div style="text-align:center">
+                            <div style="width:64px;height:64px;border-radius:16px;background:#e8f4fd;display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 12px">📡</div>
+                            <div style="font-weight:600;font-size:14px">数据采集处理</div>
+                            <div style="font-size:12px;color:var(--text-light);margin-top:4px">地形测绘 · 钻孔剖面<br>地球物理 · 地球化学</div>
+                        </div>
+                        <div style="font-size:24px;color:var(--secondary)">→</div>
+                        <div style="text-align:center">
+                            <div style="width:64px;height:64px;border-radius:16px;background:#fef3c7;display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 12px">🧩</div>
+                            <div style="font-weight:600;font-size:14px">三维模型构建</div>
+                            <div style="font-size:12px;color:var(--text-light);margin-top:4px">GOCAD · Surpac<br>XModel · DMine</div>
+                        </div>
+                        <div style="font-size:24px;color:var(--secondary)">→</div>
+                        <div style="text-align:center">
+                            <div style="width:64px;height:64px;border-radius:16px;background:#d1fae5;display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 12px">🌐</div>
+                            <div style="font-weight:600;font-size:14px">可视化展示</div>
+                            <div style="font-size:12px;color:var(--text-light);margin-top:4px">动态渲染 · 交互查询<br>储量计算 · 决策支持</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 3: 资源储量统计 -->
+        <div id="r3" class="tab-content">
+            <div class="row-equal">
+                <div class="card">
+                    <div class="card-header"><h3>资源储量填报管理</h3><span class="badge">最新数据</span></div>
+                    <div class="card-body">
+                        <div class="toolbar">
+                            <button class="btn btn-primary btn-sm">＋ 新增填报</button>
+                            <button class="btn btn-sm">📥 导入</button>
+                            <button class="btn btn-sm">📤 导出</button>
+                        </div>
+                        <table>
+                            <thead><tr><th>矿产类型</th><th>储量区域</th><th>填报量</th><th>单位</th><th>填报人</th><th>日期</th><th>状态</th></tr></thead>
+                            <tbody>
+                                <tr><td><span class="tag gold">石油</span></td><td>琼东南A区</td><td>1,500</td><td>万吨</td><td>王储量</td><td>2026-05-19</td><td><span class="status ok">● 已审核</span></td></tr>
+                                <tr><td><span class="tag gold">天然气</span></td><td>莺歌海B区</td><td>1,200</td><td>亿m³</td><td>李矿管</td><td>2026-05-18</td><td><span class="status ok">● 已审核</span></td></tr>
+                                <tr><td><span class="tag teal">海砂</span></td><td>三亚湾C区</td><td>800</td><td>万吨</td><td>赵勘查</td><td>2026-05-17</td><td><span class="status warn">● 待审核</span></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><h3>储量变动统计与分析</h3><span class="badge">变动趋势</span></div>
+                    <div class="card-body">
+                        <div class="chart-container"><canvas id="reserveChangeChart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+            <div class="row-equal">
+                <div class="card">
+                    <div class="card-header"><h3>储量动态监控</h3><span class="badge">实时</span></div>
+                    <div class="card-body">
+                        <table>
+                            <thead><tr><th>区域</th><th>变动类型</th><th>变动量</th><th>原因</th><th>时间</th></tr></thead>
+                            <tbody>
+                                <tr><td>琼东南A区</td><td><span style="color:#ef4444">减少</span></td><td>-420万t</td><td>资源开采</td><td>2026Q1</td></tr>
+                                <tr><td>莺歌海B区</td><td><span style="color:#10b981">增加</span></td><td>+180万t</td><td>补充勘探</td><td>2026Q1</td></tr>
+                                <tr><td>三亚湾C区</td><td><span style="color:#ef4444">减少</span></td><td>-60万t</td><td>生产开采</td><td>2026Q1</td></tr>
+                                <tr><td>琼东南A区</td><td><span style="color:#f59e0b">重算</span></td><td>-15万t</td><td>储量重评</td><td>2026Q1</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><h3>储量分布占比</h3><span class="badge">按矿种</span></div>
+                    <div class="card-body">
+                        <div class="chart-container"><canvas id="reservePieChart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 4: 储量报表输出 -->
+        <div id="r4" class="tab-content">
+            <div class="row-equal">
+                <div class="card">
+                    <div class="card-header"><h3>报表模板管理</h3><span class="badge">4 个模板</span></div>
+                    <div class="card-body">
+                        <div class="toolbar">
+                            <button class="btn btn-primary btn-sm">＋ 新增模板</button>
+                            <button class="btn btn-sm">📤 导出</button>
+                        </div>
+                        <table>
+                            <thead><tr><th>模板名称</th><th>类型</th><th>格式</th><th>最近更新</th><th>操作</th></tr></thead>
+                            <tbody>
+                                <tr><td>年度储量台账模板</td><td><span class="tag gold">年度</span></td><td>PDF / Excel</td><td>2026-01-01</td><td><button class="btn btn-sm">✏️</button><button class="btn btn-sm">📥</button></td></tr>
+                                <tr><td>季度储量变动附表模板</td><td><span class="tag blue">季度</span></td><td>PDF / Excel</td><td>2026-04-01</td><td><button class="btn btn-sm">✏️</button><button class="btn btn-sm">📥</button></td></tr>
+                                <tr><td>月度开采报表模板</td><td><span class="tag teal">月度</span></td><td>Excel</td><td>2026-05-01</td><td><button class="btn btn-sm">✏️</button><button class="btn btn-sm">📥</button></td></tr>
+                                <tr><td>储量年报附表模板</td><td><span class="tag purple">年报</span></td><td>PDF</td><td>2026-01-05</td><td><button class="btn btn-sm">✏️</button><button class="btn btn-sm">📥</button></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><h3>储量台账报表输出</h3><span class="badge">多格式</span></div>
+                    <div class="card-body">
+                        <div class="report-card">
+                            <div class="rc-icon" style="background:#fef3c7;color:#92400e">📕</div>
+                            <div class="rc-info"><div class="rc-name">2025年度海洋矿产储量台账</div><div class="rc-meta">PDF / Excel · 生成于 2026-01-05 · 12.5 MB</div></div>
+                            <button class="btn btn-sm">📥 下载</button>
+                        </div>
+                        <div class="report-card">
+                            <div class="rc-icon" style="background:#e8f4fd;color:#0a4b7a">📘</div>
+                            <div class="rc-info"><div class="rc-name">2026年Q1储量变动年报附表</div><div class="rc-meta">PDF / Excel · 生成于 2026-04-02 · 8.2 MB</div></div>
+                            <button class="btn btn-sm">📥 下载</button>
+                        </div>
+                        <div class="report-card">
+                            <div class="rc-icon" style="background:#ccfbf1;color:#0d9488">📙</div>
+                            <div class="rc-info"><div class="rc-name">2026年5月储量月报</div><div class="rc-meta">Excel · 生成于 2026-05-19 · 3.8 MB</div></div>
+                            <button class="btn btn-sm">📥 下载</button>
+                        </div>
+                        <div class="report-card">
+                            <div class="rc-icon" style="background:#ede9fe;color:#5b21b6">📗</div>
+                            <div class="rc-info"><div class="rc-name">2025年度储量年报</div><div class="rc-meta">PDF · 生成于 2026-01-10 · 18.6 MB</div></div>
+                            <button class="btn btn-sm">📥 下载</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header"><h3>逻辑校验与校核</h3><span class="badge">自动校验</span></div>
+                <div class="card-body">
+                    <div class="row-three">
+                        <div class="info-card" style="border-left:3px solid #10b981"><div class="ic-label">✅ 期初期末一致性校验</div><div class="ic-value" style="font-size:13px;color:#10b981">通过</div><div style="font-size:11px;color:var(--text-light)">期末 = 期初 + 新增 - 消耗 ± 重算</div></div>
+                        <div class="info-card" style="border-left:3px solid #10b981"><div class="ic-label">✅ 台账与报表勾稽关系</div><div class="ic-value" style="font-size:13px;color:#10b981">通过</div><div style="font-size:11px;color:var(--text-light)">台账数据 → 附表 → 年报 一致</div></div>
+                        <div class="info-card" style="border-left:3px solid #f59e0b"><div class="ic-label">⚠️ 矿权储量边界校验</div><div class="ic-value" style="font-size:13px;color:#f59e0b">2项提示</div><div style="font-size:11px;color:var(--text-light)">三亚湾C区储量超矿权范围</div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('currentTime').textContent = new Date().toLocaleString('zh-CN', { hour12: false });
+
+    function switchTab(id) {
+        document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+        document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+        document.getElementById(id).classList.add('active');
+        event.target.classList.add('active');
+        setTimeout(function() { window.dispatchEvent(new Event('resize')); }, 100);
+    }
+
+    // 储量变动趋势
+    new Chart(document.getElementById('reserveChangeChart'), {
+        type: 'line',
+        data: {
+            labels: ['2020','2021','2022','2023','2024','2025'],
+            datasets: [
+                { label: '探明储量 (亿吨)', data: [3.2, 3.5, 3.9, 4.3, 4.6, 4.8], borderColor: '#c47a38', backgroundColor: 'rgba(196,122,56,.1)', tension: .3, fill: true },
+                { label: '可采储量 (亿吨)', data: [1.2, 1.4, 1.5, 1.6, 1.7, 1.8], borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,.1)', tension: .3, fill: true }
+            ]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { usePointStyle: true, font: { size: 11 } } } }, scales: { y: { beginAtZero: false, min: 1, grid: { color: '#f0f4f8' } }, x: { grid: { display: false } } } }
+    });
+
+    // 储量占比
+    new Chart(document.getElementById('reservePieChart'), {
+        type: 'doughnut',
+        data: {
+            labels: ['石油天然气', '海砂', '天然气水合物', '多金属结核', '其他'],
+            datasets: [{ data: [55, 20, 12, 8, 5], backgroundColor: ['#f59e0b', '#8b5cf6', '#10b981', '#ef4444', '#c47a38'], borderWidth: 0 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { padding: 8, usePointStyle: true, font: { size: 11 } } } }, cutout: '55%' }
+    });
+</script>
+</body>
+</html>

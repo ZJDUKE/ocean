@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>矿产疑似位置详情</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #0a1628; color: #e8edf5; display: flex; min-height: 100vh; }
+        :root { --primary: #0d6b4a; --primary-light: #14a06f; --secondary: #0a8f6b; --accent: #f5c542; --accent-light: #fadd7a; --ocean-deep: #051525; --ocean-mid: #0a1e35; --ocean-light: #0f2a4a; --card: rgba(15,42,74,.75); --card-hover: rgba(20,52,90,.85); --card-border: rgba(255,255,255,.08); --text: #e8edf5; --text-light: #8ea4c0; --sidebar-w: 220px; --header-h: 56px; }
+
+        .sidebar { width: var(--sidebar-w); background: linear-gradient(180deg, #05101f 0%, #0a1e35 100%); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; height: 100vh; z-index: 100; border-right: 1px solid rgba(255,255,255,.06); }
+        .sidebar-logo { padding: 16px 18px; border-bottom: 1px solid rgba(255,255,255,.08); display: flex; align-items: center; gap: 10px; }
+        .sidebar-logo .logo-icon { width: 34px; height: 34px; background: linear-gradient(135deg, var(--accent), var(--accent-light)); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: bold; color: #0a1628; flex-shrink: 0; }
+        .sidebar-logo span { font-size: 14px; font-weight: 600; line-height: 1.3; }
+        .sidebar-logo small { font-size: 10px; font-weight: 400; opacity: .6; display: block; }
+        .sidebar-nav { flex: 1; padding: 10px 0; overflow-y: auto; }
+        .sidebar-nav .nav-label { padding: 10px 18px 4px; font-size: 10px; text-transform: uppercase; opacity: .4; letter-spacing: 1px; }
+        .sidebar-nav a { display: flex; align-items: center; gap: 10px; padding: 9px 18px; color: rgba(255,255,255,.55); text-decoration: none; font-size: 13px; transition: all .2s; border-left: 3px solid transparent; }
+        .sidebar-nav a:hover { background: rgba(255,255,255,.06); color: #fff; }
+        .sidebar-nav a.active { background: rgba(255,255,255,.1); color: var(--accent); border-left-color: var(--accent); }
+        .sidebar-nav a .icon { width: 18px; text-align: center; font-size: 14px; }
+
+        .main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; }
+        .header { height: var(--header-h); background: rgba(10,30,53,.9); backdrop-filter: blur(10px); border-bottom: 1px solid var(--card-border); display: flex; align-items: center; justify-content: space-between; padding: 0 24px; position: sticky; top: 0; z-index: 50; }
+        .header-left { display: flex; align-items: center; gap: 16px; }
+        .header-left .breadcrumb { font-size: 13px; color: var(--text-light); }
+        .header-left .breadcrumb span { color: var(--accent); }
+        .header-actions { display: flex; align-items: center; gap: 16px; }
+        .header-actions .time { font-size: 12px; color: var(--text-light); }
+        .header-actions .user { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+        .header-actions .avatar { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--secondary)); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; }
+
+        .content { padding: 20px 28px; overflow-y: auto; flex: 1; }
+
+        .back-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+        .back-bar a { color: var(--text-light); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 4px; transition: all .2s; }
+        .back-bar a:hover { color: var(--accent); }
+        .back-bar .sep { color: var(--text-light); opacity: .4; }
+        .back-bar .current { color: var(--accent); font-size: 13px; }
+
+        .detail-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; gap: 16px; flex-wrap: wrap; }
+        .detail-header .dh-left { }
+        .detail-header .dh-left h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .detail-header .dh-left h1 .pos-id { font-size: 13px; font-weight: 400; color: var(--text-light); }
+        .detail-header .dh-left .dh-meta { display: flex; align-items: center; gap: 14px; font-size: 13px; color: var(--text-light); flex-wrap: wrap; }
+        .detail-header .dh-left .dh-meta .confidence { display: flex; align-items: center; gap: 4px; }
+        .detail-header .dh-right { display: flex; gap: 10px; flex-wrap: wrap; }
+
+        .btn-primary { background: linear-gradient(135deg, var(--primary), var(--secondary)); color: #fff; border: none; padding: 8px 18px; border-radius: 8px; font-size: 13px; cursor: pointer; transition: all .2s; display: flex; align-items: center; gap: 6px; }
+        .btn-primary:hover { opacity: .85; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(13,107,74,.3); }
+        .btn-accent { background: linear-gradient(135deg, var(--accent), #eab308); color: #0a1628; border: none; padding: 8px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .2s; display: flex; align-items: center; gap: 6px; }
+        .btn-accent:hover { opacity: .9; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(245,197,66,.3); }
+        .btn-outline { background: transparent; border: 1px solid var(--card-border); color: var(--text-light); padding: 8px 18px; border-radius: 8px; font-size: 13px; cursor: pointer; transition: all .2s; display: flex; align-items: center; gap: 6px; }
+        .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+        .btn-sm { padding: 4px 12px; font-size: 12px; }
+
+        .section { background: var(--card); border: 1px solid var(--card-border); border-radius: 12px; margin-bottom: 18px; overflow: hidden; backdrop-filter: blur(8px); }
+        .section-header { padding: 14px 20px; border-bottom: 1px solid var(--card-border); display: flex; justify-content: space-between; align-items: center; }
+        .section-header h3 { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+        .section-header .sh-badge { font-size: 11px; padding: 2px 10px; border-radius: 10px; background: rgba(13,107,74,.3); color: var(--primary-light); }
+        .section-body { padding: 16px 20px; }
+
+        .info-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; }
+        .info-item { padding: 10px 14px; background: rgba(255,255,255,.02); border-radius: 6px; }
+        .info-item .ii-label { font-size: 11px; color: var(--text-light); margin-bottom: 4px; }
+        .info-item .ii-value { font-size: 14px; font-weight: 500; }
+        .info-item .ii-value .unit { font-size: 11px; color: var(--text-light); font-weight: 400; margin-left: 2px; }
+        .info-item.full { grid-column: span 4; }
+
+        .evi-tabs { display: flex; gap: 0; margin-bottom: 0; border-bottom: 1px solid var(--card-border); background: rgba(255,255,255,.02); }
+        .evi-tab { padding: 10px 18px; font-size: 13px; color: var(--text-light); cursor: pointer; border-bottom: 2px solid transparent; transition: all .2s; user-select: none; }
+        .evi-tab:hover { color: var(--text); background: rgba(255,255,255,.04); }
+        .evi-tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+        .evi-tab .evi-count { font-size: 10px; background: rgba(255,255,255,.1); padding: 1px 6px; border-radius: 8px; margin-left: 4px; }
+
+        .evi-summary { display: flex; gap: 14px; padding: 12px 20px; background: rgba(255,255,255,.02); border-bottom: 1px solid var(--card-border); flex-wrap: wrap; }
+        .evi-summary .es-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-light); }
+        .evi-summary .es-item .es-val { color: var(--text); font-weight: 600; font-size: 14px; }
+        .evi-summary .es-item .es-val.good { color: #10b981; }
+        .evi-summary .es-item .es-val.medium { color: var(--accent); }
+
+        .evi-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .evi-table th { text-align: left; padding: 8px 14px; color: var(--text-light); font-weight: 500; font-size: 11px; border-bottom: 1px solid var(--card-border); }
+        .evi-table td { padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,.04); }
+        .evi-table tr:hover td { background: rgba(255,255,255,.04); }
+        .evi-table .evi-file { color: var(--primary-light); cursor: pointer; text-decoration: underline dotted; }
+
+        .company-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .company-table th { text-align: left; padding: 8px 14px; color: var(--text-light); font-weight: 500; font-size: 11px; border-bottom: 1px solid var(--card-border); }
+        .company-table td { padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,.04); }
+        .company-table tr:hover td { background: rgba(255,255,255,.04); }
+        .company-table .comp-tag { display: inline-block; font-size: 10px; padding: 1px 8px; border-radius: 3px; }
+        .company-table .comp-tag.operator { background: rgba(13,107,74,.3); color: var(--primary-light); }
+        .company-table .comp-tag.investor { background: rgba(245,158,11,.2); color: #fcd34d; }
+        .company-table .comp-tag.research { background: rgba(59,130,246,.2); color: #93c5fd; }
+
+        .tag { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 3px; }
+        .tag.high-conf { background: rgba(239,68,68,.2); color: #fca5a5; }
+        .tag.med-conf { background: rgba(245,158,11,.2); color: #fcd34d; }
+        .tag.low-conf { background: rgba(59,130,246,.2); color: #93c5fd; }
+        .tag.verified { background: rgba(16,185,129,.2); color: #6ee7b7; }
+        .tag.pending { background: rgba(245,158,11,.2); color: #fcd34d; }
+        .tag.evi-strong { background: rgba(239,68,68,.15); color: #fca5a5; }
+        .tag.evi-good { background: rgba(16,185,129,.15); color: #6ee7b7; }
+        .tag.evi-normal { background: rgba(59,130,246,.15); color: #93c5fd; }
+        .tag.evi-weak { background: rgba(107,114,128,.15); color: #9ca3af; }
+
+        .gis-mini { position: fixed; right: 24px; bottom: 24px; width: 280px; height: 200px; background: rgba(10,22,40,.92); border: 1px solid var(--card-border); border-radius: 12px; backdrop-filter: blur(12px); overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,.5); display: none; z-index: 200; }
+        .gis-mini.show { display: block; }
+        .gis-mini .gm-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--card-border); font-size: 12px; }
+        .gis-mini .gm-header span { color: var(--accent); font-weight: 600; }
+        .gis-mini .gm-header button { background: none; border: none; color: var(--text-light); cursor: pointer; font-size: 16px; }
+        .gis-mini .gm-map { width: 100%; height: calc(100% - 34px); background: linear-gradient(180deg, #0d2a5a, #0a3a2a); position: relative; }
+        .gis-mini .gm-marker { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 12px; height: 12px; border-radius: 50%; background: #ef4444; border: 2px solid rgba(255,255,255,.6); box-shadow: 0 0 16px rgba(239,68,68,.6); }
+
+        .toast { position: fixed; top: 20px; right: 20px; z-index: 9999; background: rgba(10,22,40,.95); border: 1px solid var(--card-border); border-radius: 8px; padding: 12px 20px; display: none; align-items: center; gap: 10px; font-size: 13px; box-shadow: 0 8px 32px rgba(0,0,0,.5); backdrop-filter: blur(12px); animation: slideIn .3s ease; }
+        .toast.show { display: flex; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 9998; display: none; align-items: center; justify-content: center; }
+        .modal-overlay.show { display: flex; }
+        .modal { background: rgba(10,22,40,.97); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px; max-width: 420px; width: 90%; box-shadow: 0 16px 48px rgba(0,0,0,.6); }
+        .modal h4 { font-size: 16px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+        .modal p { font-size: 13px; color: var(--text-light); margin-bottom: 16px; line-height: 1.6; }
+        .modal .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 2px; }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="sidebar-logo">
+        <div class="logo-icon">⚓</div>
+        <div><span>智慧海洋</span><small>数据管理平台</small></div>
+    </div>
+    <div class="sidebar-nav">
+        <div class="nav-label">导航菜单</div>
+        <a href="#"><span class="icon">📊</span> 数据总览</a>
+        <a href="#"><span class="icon">🗺️</span> 海洋一张图</a>
+        <a href="mineral-one-map.html" class="active"><span class="icon">⛏️</span> 海洋矿产</a>
+        <a href="#"><span class="icon">📋</span> 海洋数据管理</a>
+        <a href="#"><span class="icon">🔍</span> 智能问答</a>
+        <a href="#"><span class="icon">⚙️</span> 系统管理</a>
+    </div>
+</div>
+
+<div class="main">
+    <div class="header">
+        <div class="header-left">
+            <div class="breadcrumb">智慧海洋平台 / 海洋一张图 / 海洋矿产 / <span>矿产疑似位置详情</span></div>
+        </div>
+        <div class="header-actions">
+            <span class="time" id="headerTime"></span>
+            <div class="user">
+                <span>决策者 · 张海洋</span>
+                <div class="avatar">张</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="back-bar">
+            <a href="mineral-one-map.html">← 返回海洋一张图</a>
+            <span class="sep">|</span>
+            <a href="#" onclick="showGisMini()" style="font-size:12px;">📍 在地图中查看</a>
+            <span class="sep">|</span>
+            <span class="current">矿产疑似位置详情</span>
+        </div>
+
+        <div class="detail-header">
+            <div class="dh-left">
+                <h1>
+                    琼东南盆地油气构造
+                    <span class="pos-id">SUS-2026-0001</span>
+                </h1>
+                <div class="dh-meta">
+                    <span class="confidence">置信等级：<span style="color:#ef4444;font-weight:600;">⭐⭐⭐ 高</span></span>
+                    <span>|</span>
+                    <span>验证状态：<span class="tag verified">已验证</span></span>
+                    <span>|</span>
+                    <span>发现来源：多方综合</span>
+                    <span>|</span>
+                    <span>发现日期：2026-03-15</span>
+                    <span>|</span>
+                    <span>最近更新：2026-05-20</span>
+                </div>
+            </div>
+            <div class="dh-right">
+                <button class="btn-accent" onclick="showVerifyModal()">✅ 标记为已验证</button>
+                <button class="btn-outline" onclick="showToast('正在生成报告...')">📄 导出报告</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-header">
+                <h3>📋 基本信息</h3>
+            </div>
+            <div class="section-body">
+                <div class="info-grid">
+                    <div class="info-item"><div class="ii-label">位置编号</div><div class="ii-value">SUS-2026-0001</div></div>
+                    <div class="info-item"><div class="ii-label">名称</div><div class="ii-value">琼东南盆地油气构造</div></div>
+                    <div class="info-item"><div class="ii-label">疑似矿种</div><div class="ii-value">石油天然气</div></div>
+                    <div class="info-item"><div class="ii-label">发现来源</div><div class="ii-value">多方综合</div></div>
+                    <div class="info-item"><div class="ii-label">所属海域</div><div class="ii-value">南海 · 琼东南盆地</div></div>
+                    <div class="info-item"><div class="ii-label">坐标</div><div class="ii-value">17°35'N, 111°20'E</div></div>
+                    <div class="info-item"><div class="ii-label">水深</div><div class="ii-value">800<span class="unit">m</span></div></div>
+                    <div class="info-item"><div class="ii-label">预估面积</div><div class="ii-value">3,200<span class="unit">km²</span></div></div>
+                    <div class="info-item"><div class="ii-label">置信等级</div><div class="ii-value"><span style="color:#ef4444;">⭐⭐⭐ 高</span></div></div>
+                    <div class="info-item"><div class="ii-label">验证状态</div><div class="ii-value"><span class="tag verified">已验证</span></div></div>
+                    <div class="info-item"><div class="ii-label">发现日期</div><div class="ii-value">2026-03-15</div></div>
+                    <div class="info-item"><div class="ii-label">最近更新</div><div class="ii-value">2026-05-20</div></div>
+                    <div class="info-item"><div class="ii-label">数据负责人</div><div class="ii-value">李明远（海洋厅矿产处）</div></div>
+                    <div class="info-item"><div class="ii-label">部门</div><div class="ii-value">海南省海洋厅矿产管理处</div></div>
+                    <div class="info-item"><div class="ii-label">置信评分</div><div class="ii-value">92<span class="unit">/100</span></div></div>
+                    <div class="info-item"><div class="ii-label">证据总数</div><div class="ii-value">8<span class="unit">条</span></div></div>
+                    <div class="info-item full"><div class="ii-label">描述</div><div class="ii-value" style="font-weight:400;font-size:13px;">位于琼东南盆地中央坳陷带，区域构造背景显示良好的生储盖组合条件。多道地震剖面显示存在大型构造圈闭，振幅异常与AVO属性指示含油气性。邻近已探明气田，成藏条件优越。</div></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-header">
+                <h3>🔬 证据链</h3>
+                <span class="sh-badge">共 8 条证据</span>
+            </div>
+            <div class="evi-tabs">
+                <div class="evi-tab active" onclick="switchEviTab(this,'remote')">📡 遥感影像 <span class="evi-count">2</span></div>
+                <div class="evi-tab" onclick="switchEviTab(this,'geophy')">🌍 地球物理 <span class="evi-count">3</span></div>
+                <div class="evi-tab" onclick="switchEviTab(this,'geochem')">🧪 地球化学 <span class="evi-count">1</span></div>
+                <div class="evi-tab" onclick="switchEviTab(this,'geology')">📋 地质勘查 <span class="evi-count">1</span></div>
+                <div class="evi-tab" onclick="switchEviTab(this,'history')">📚 历史文献 <span class="evi-count">1</span></div>
+            </div>
+            <div class="evi-summary">
+                <div class="es-item">证据链综合评估：<span class="es-val good">置信度高</span></div>
+                <div class="es-item">有效证据占比：<span class="es-val">87.5%</span></div>
+                <div class="es-item">遥感影像显示存在明显的油气渗漏异常，地球物理数据指示大型构造圈闭</div>
+            </div>
+            <div class="section-body" style="padding-top:0;">
+                <table class="evi-table" id="eviTable">
+                    <thead>
+                        <tr>
+                            <th>证据名称</th>
+                            <th>来源</th>
+                            <th>数据类型</th>
+                            <th>日期</th>
+                            <th>置信贡献</th>
+                            <th>结论摘要</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="eviBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-header">
+                <h3>🏢 相关企业</h3>
+                <span class="sh-badge">共 3 家企业</span>
+            </div>
+            <div class="section-body">
+                <table class="company-table">
+                    <thead>
+                        <tr>
+                            <th>企业名称</th>
+                            <th>统一社会信用代码</th>
+                            <th>关联类型</th>
+                            <th>关联项目</th>
+                            <th>联系方式</th>
+                            <th>备注</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style="font-weight:500;">中海油海南分公司</td>
+                            <td style="color:var(--text-light);">91460000MA5TXXXXX</td>
+                            <td><span class="comp-tag operator">作业者</span></td>
+                            <td>琼东南盆地油气勘探项目</td>
+                            <td style="color:var(--text-light);">0898-68XXXXXX</td>
+                            <td style="color:var(--text-light);">已取得该区块探矿权</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight:500;">广州海洋地质调查局</td>
+                            <td style="color:var(--text-light);">1210000044XXXXXX</td>
+                            <td><span class="comp-tag research">科研机构</span></td>
+                            <td>南海油气资源综合调查</td>
+                            <td style="color:var(--text-light);">020-87XXXXXX</td>
+                            <td style="color:var(--text-light);">提供地球物理数据支撑</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight:500;">中石油南方勘探开发公司</td>
+                            <td style="color:var(--text-light);">91460000MA7XXXXXX</td>
+                            <td><span class="comp-tag investor">投资方</span></td>
+                            <td>琼东南区块风险勘探合作</td>
+                            <td style="color:var(--text-light);">0898-68XXXXXX</td>
+                            <td style="color:var(--text-light);">参与风险勘探投资</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="gis-mini" id="gisMini">
+    <div class="gm-header">
+        <span>📍 琼东南盆地油气构造</span>
+        <button onclick="closeGisMini()">✕</button>
+    </div>
+    <div class="gm-map">
+        <div class="gm-marker"></div>
+        <div style="position:absolute;bottom:8px;left:12px;font-size:10px;color:rgba(255,255,255,.5);">17°35'N, 111°20'E</div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="verifyModal">
+    <div class="modal">
+        <h4>✅ 确认验证</h4>
+        <p>确认将「琼东南盆地油气构造」的验证状态标记为<b>「已验证」</b>？<br>标记后，一张图中该标注点的颜色将更新为已验证状态，并将记录本次操作日志。</p>
+        <div class="modal-actions">
+            <button class="btn-outline" onclick="closeVerifyModal()">取消</button>
+            <button class="btn-accent" onclick="confirmVerify()">确认标记</button>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+    const eviData = {
+        remote: [
+            { name: 'Landsat-9 OLI多光谱影像', source: '中国资源卫星中心', type: '影像', date: '2025-12-03', conf: '强', summary: '显示海面油膜异常，疑似油气渗漏', file: '查看影像' },
+            { name: 'Sentinel-1 SAR雷达影像', source: '欧空局', type: '雷达', date: '2026-01-18', conf: '良好', summary: '检测到海面粗糙度异常，吻合油膜分布', file: '查看影像' }
+        ],
+        geophy: [
+            { name: '多道地震剖面解释', source: '中海油天津分公司', type: '地震', date: '2025-08-20', conf: '强', summary: '识别大型构造圈闭，面积约120km²', file: '查看图件' },
+            { name: '重磁力异常图', source: '广州海洋地质调查局', type: '重磁', date: '2025-06-15', conf: '良好', summary: '局部重力高异常，指示基底隆起构造', file: '查看图件' },
+            { name: 'AVO属性分析', source: '中海油研究总院', type: '地震属性', date: '2026-02-10', conf: '良好', summary: 'AVO异常检测显示含油气概率72%', file: '查看分析报告' }
+        ],
+        geochem: [
+            { name: '海底沉积物烃类检测', source: '中科院南海海洋所', type: '化探', date: '2025-11-05', conf: '一般', summary: 'C1-C5烃类含量偏高，但异常幅度有限', file: '查看报告' }
+        ],
+        geology: [
+            { name: '区域地质调查报告', source: '海南省地质调查院', type: '地质报告', date: '2025-04-10', conf: '良好', summary: '确认该区存在新近系滨海-浅海相沉积，具备生烃条件', file: '查看全文' }
+        ],
+        history: [
+            { name: '南海北部油气勘探成果综述', source: '中国知网', type: '文献', date: '2024-12-01', conf: '一般', summary: '文献综述中指出该区带为潜在勘探远景区', file: '查看摘要' }
+        ]
+    };
+
+    let currentTab = 'remote';
+
+    function updateTime() {
+        const now = new Date();
+        document.getElementById('headerTime').textContent = now.toLocaleString('zh-CN', { hour12: false });
+    }
+    updateTime();
+    setInterval(updateTime, 1000);
+
+    function renderEviData(tab) {
+        currentTab = tab;
+        const data = eviData[tab] || [];
+        const tbody = document.getElementById('eviBody');
+        if (data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-light);">该维度暂无证据数据，请点击其他维度查看</td></tr>';
+            return;
+        }
+        tbody.innerHTML = data.map(d => {
+            const confClass = d.conf === '强' ? 'evi-strong' : d.conf === '良好' ? 'evi-good' : 'evi-normal';
+            return `<tr>
+                <td style="font-weight:500;">${d.name}</td>
+                <td style="color:var(--text-light);">${d.source}</td>
+                <td style="color:var(--text-light);">${d.type}</td>
+                <td style="color:var(--text-light);">${d.date}</td>
+                <td><span class="tag ${confClass}">${d.conf}</span></td>
+                <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${d.summary}</td>
+                <td><span class="evi-file" onclick="showToast('正在加载${d.file}...')">${d.file}</span></td>
+            </tr>`;
+        }).join('');
+    }
+
+    function switchEviTab(el, tab) {
+        document.querySelectorAll('.evi-tab').forEach(t => t.classList.remove('active'));
+        el.classList.add('active');
+        renderEviData(tab);
+    }
+
+    function showGisMini() {
+        document.getElementById('gisMini').classList.add('show');
+    }
+
+    function closeGisMini() {
+        document.getElementById('gisMini').classList.remove('show');
+    }
+
+    function showVerifyModal() {
+        document.getElementById('verifyModal').classList.add('show');
+    }
+
+    function closeVerifyModal() {
+        document.getElementById('verifyModal').classList.remove('show');
+    }
+
+    function confirmVerify() {
+        closeVerifyModal();
+        showToast('✅ 验证状态已更新为「已验证」');
+        setTimeout(() => {
+            document.querySelector('.tag.verified').textContent = '✅ 已验证';
+        }, 100);
+    }
+
+    function showToast(msg) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
+    renderEviData('remote');
+</script>
+
+</body>
+</html>

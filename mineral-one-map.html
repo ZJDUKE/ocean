@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>海洋矿产 - 一张图场景</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #0a1628; color: #e8edf5; display: flex; min-height: 100vh; }
+        :root { --primary: #0d6b4a; --primary-light: #14a06f; --secondary: #0a8f6b; --accent: #f5c542; --accent-light: #fadd7a; --ocean-deep: #051525; --ocean-mid: #0a1e35; --ocean-light: #0f2a4a; --card: rgba(15,42,74,.75); --card-border: rgba(255,255,255,.08); --text: #e8edf5; --text-light: #8ea4c0; --sidebar-w: 220px; --header-h: 56px; }
+
+        .sidebar { width: var(--sidebar-w); background: linear-gradient(180deg, #05101f 0%, #0a1e35 100%); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; height: 100vh; z-index: 100; border-right: 1px solid rgba(255,255,255,.06); }
+        .sidebar-logo { padding: 16px 18px; border-bottom: 1px solid rgba(255,255,255,.08); display: flex; align-items: center; gap: 10px; }
+        .sidebar-logo .logo-icon { width: 34px; height: 34px; background: linear-gradient(135deg, var(--accent), var(--accent-light)); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: bold; color: #0a1628; flex-shrink: 0; }
+        .sidebar-logo span { font-size: 14px; font-weight: 600; line-height: 1.3; }
+        .sidebar-logo small { font-size: 10px; font-weight: 400; opacity: .6; display: block; }
+        .sidebar-nav { flex: 1; padding: 10px 0; overflow-y: auto; }
+        .sidebar-nav .nav-label { padding: 10px 18px 4px; font-size: 10px; text-transform: uppercase; opacity: .4; letter-spacing: 1px; }
+        .sidebar-nav a { display: flex; align-items: center; gap: 10px; padding: 9px 18px; color: rgba(255,255,255,.55); text-decoration: none; font-size: 13px; transition: all .2s; border-left: 3px solid transparent; }
+        .sidebar-nav a:hover { background: rgba(255,255,255,.06); color: #fff; }
+        .sidebar-nav a.active { background: rgba(255,255,255,.1); color: var(--accent); border-left-color: var(--accent); }
+        .sidebar-nav a .icon { width: 18px; text-align: center; font-size: 14px; }
+
+        .main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; }
+        .header { height: var(--header-h); background: rgba(10,30,53,.9); backdrop-filter: blur(10px); border-bottom: 1px solid var(--card-border); display: flex; align-items: center; justify-content: space-between; padding: 0 24px; position: sticky; top: 0; z-index: 50; }
+        .header-left { display: flex; align-items: center; gap: 16px; }
+        .header-left .breadcrumb { font-size: 13px; color: var(--text-light); }
+        .header-left .breadcrumb span { color: var(--accent); }
+        .header-actions { display: flex; align-items: center; gap: 16px; }
+        .header-actions .time { font-size: 12px; color: var(--text-light); }
+        .header-actions .user { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+        .header-actions .avatar { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--secondary)); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; }
+
+        .content { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+
+        .scene-tabs { display: flex; align-items: center; gap: 2px; padding: 10px 24px 0; background: rgba(10,30,53,.6); }
+        .scene-tab { padding: 8px 18px; font-size: 13px; color: var(--text-light); cursor: pointer; border-radius: 8px 8px 0 0; transition: all .2s; border: 1px solid transparent; border-bottom: none; background: transparent; user-select: none; }
+        .scene-tab:hover { color: #fff; background: rgba(255,255,255,.05); }
+        .scene-tab.active { color: var(--accent); background: rgba(10,22,40,.9); border-color: var(--card-border); font-weight: 600; }
+        .scene-tab .badge { font-size: 10px; background: var(--accent); color: #0a1628; padding: 1px 6px; border-radius: 8px; margin-left: 4px; font-weight: 600; }
+
+        .map-container { flex: 1; position: relative; overflow: hidden; }
+        .map-canvas { width: 100%; height: 100%; background: linear-gradient(180deg, #0a1e35 0%, #061830 40%, #0d2a4a 70%, #0a3a2a 100%); position: relative; }
+        .map-grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px); background-size: 60px 60px; }
+        .map-coastline { position: absolute; inset: 0; }
+        .map-coastline svg { width: 100%; height: 100%; }
+
+        .map-markers { position: absolute; inset: 0; pointer-events: none; }
+        .map-marker { position: absolute; pointer-events: auto; cursor: pointer; transform: translate(-50%, -50%); transition: all .3s; }
+        .map-marker:hover { z-index: 100; transform: translate(-50%, -50%) scale(1.25); }
+        .map-marker .dot { width: 16px; height: 16px; border-radius: 50%; border: 2px solid rgba(255,255,255,.5); box-shadow: 0 0 12px rgba(245,197,66,.3); }
+        .map-marker .dot.high { background: #ef4444; box-shadow: 0 0 16px rgba(239,68,68,.5); }
+        .map-marker .dot.medium { background: #f59e0b; box-shadow: 0 0 12px rgba(245,158,11,.4); }
+        .map-marker .dot.low { background: #3b82f6; box-shadow: 0 0 12px rgba(59,130,246,.3); }
+        .map-marker .label { position: absolute; top: -24px; left: 50%; transform: translateX(-50%); font-size: 10px; color: #fff; white-space: nowrap; background: rgba(0,0,0,.7); padding: 1px 6px; border-radius: 4px; display: none; }
+        .map-marker:hover .label { display: block; }
+
+        .map-marker .pulse { position: absolute; inset: -4px; border-radius: 50%; animation: pulse 2s infinite; }
+        .map-marker .pulse.high { border: 2px solid rgba(239,68,68,.4); }
+        .map-marker .pulse.medium { border: 2px solid rgba(245,158,11,.3); }
+        @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(2); opacity: 0; } }
+
+        .map-tooltip { position: absolute; background: rgba(10,22,40,.95); border: 1px solid var(--card-border); border-radius: 10px; padding: 14px 16px; width: 260px; pointer-events: auto; z-index: 200; display: none; box-shadow: 0 8px 32px rgba(0,0,0,.5); backdrop-filter: blur(12px); }
+        .map-tooltip .tt-title { font-size: 14px; font-weight: 600; color: var(--accent); margin-bottom: 8px; }
+        .map-tooltip .tt-row { display: flex; justify-content: space-between; font-size: 12px; padding: 3px 0; color: var(--text-light); }
+        .map-tooltip .tt-row span:last-child { color: var(--text); }
+        .map-tooltip .tt-actions { display: flex; gap: 8px; margin-top: 10px; }
+        .map-tooltip .tt-actions button { flex: 1; padding: 6px 0; border: none; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all .2s; }
+
+        .stats-overlay { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; z-index: 30; }
+        .stat-chip { background: rgba(10,22,40,.85); backdrop-filter: blur(8px); border: 1px solid var(--card-border); border-radius: 8px; padding: 8px 16px; display: flex; align-items: center; gap: 10px; }
+        .stat-chip .sc-icon { font-size: 18px; }
+        .stat-chip .sc-info { }
+        .stat-chip .sc-info .sc-val { font-size: 18px; font-weight: 700; color: var(--accent); }
+        .stat-chip .sc-info .sc-label { font-size: 11px; color: var(--text-light); }
+
+        .layer-panel { position: absolute; right: 16px; top: 12px; width: 210px; background: rgba(10,22,40,.88); backdrop-filter: blur(12px); border: 1px solid var(--card-border); border-radius: 10px; padding: 14px; z-index: 30; }
+        .layer-panel .lp-title { font-size: 13px; font-weight: 600; color: var(--accent); margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+        .layer-item { display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: 12px; color: var(--text-light); cursor: pointer; }
+        .layer-item:hover { color: var(--text); }
+        .layer-item input[type="checkbox"] { accent-color: var(--primary-light); width: 14px; height: 14px; cursor: pointer; }
+        .layer-item .opacity-slider { flex: 1; max-width: 60px; }
+        .layer-item .opacity-slider input[type="range"] { width: 100%; height: 3px; -webkit-appearance: none; background: rgba(255,255,255,.15); border-radius: 2px; outline: none; }
+        .layer-item .opacity-slider input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); cursor: pointer; }
+        .layer-item .layer-color { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+        .search-overlay { position: absolute; left: 16px; top: 12px; z-index: 30; display: flex; flex-direction: column; gap: 8px; }
+        .search-box { display: flex; align-items: center; background: rgba(10,22,40,.85); backdrop-filter: blur(8px); border: 1px solid var(--card-border); border-radius: 8px; padding: 0 12px; width: 240px; }
+        .search-box input { flex: 1; background: none; border: none; padding: 9px 0; font-size: 13px; color: var(--text); outline: none; }
+        .search-box input::placeholder { color: var(--text-light); }
+        .search-box .search-icon { color: var(--text-light); font-size: 14px; cursor: pointer; }
+        .filter-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+        .filter-chip { font-size: 11px; padding: 3px 10px; border-radius: 12px; background: rgba(255,255,255,.08); color: var(--text-light); cursor: pointer; transition: all .2s; border: 1px solid transparent; }
+        .filter-chip:hover { background: rgba(255,255,255,.12); color: var(--text); }
+        .filter-chip.active { background: rgba(13,107,74,.4); color: var(--primary-light); border-color: var(--primary-light); }
+
+        .map-legend { position: absolute; bottom: 16px; left: 16px; background: rgba(10,22,40,.85); backdrop-filter: blur(8px); border: 1px solid var(--card-border); border-radius: 8px; padding: 10px 14px; z-index: 30; }
+        .map-legend .lg-title { font-size: 11px; color: var(--text-light); margin-bottom: 6px; }
+        .map-legend .lg-item { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text); padding: 2px 0; }
+        .map-legend .lg-item .lg-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+        .map-scale { position: absolute; bottom: 16px; right: 16px; z-index: 30; color: var(--text-light); font-size: 11px; display: flex; align-items: center; gap: 8px; }
+        .map-scale .scale-bar { width: 80px; height: 2px; background: var(--text-light); position: relative; }
+        .map-scale .scale-bar::before, .map-scale .scale-bar::after { content: ''; position: absolute; top: -3px; width: 2px; height: 8px; background: var(--text-light); }
+        .map-scale .scale-bar::before { left: 0; }
+        .map-scale .scale-bar::after { right: 0; }
+
+        .bottom-panel { background: rgba(10,22,40,.92); backdrop-filter: blur(10px); border-top: 1px solid var(--card-border); padding: 12px 24px; max-height: 180px; overflow-y: auto; }
+        .bottom-panel .bp-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .bottom-panel .bp-header h4 { font-size: 13px; font-weight: 600; color: var(--accent); }
+        .bottom-panel .bp-header .bp-actions { display: flex; gap: 8px; }
+        .bottom-panel .bp-header .bp-actions button { font-size: 11px; padding: 3px 10px; border-radius: 4px; border: 1px solid var(--card-border); background: transparent; color: var(--text-light); cursor: pointer; }
+        .bottom-panel .bp-header .bp-actions button:hover { background: rgba(255,255,255,.08); color: var(--text); }
+        .bottom-panel table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .bottom-panel table th { text-align: left; padding: 6px 10px; color: var(--text-light); font-weight: 500; border-bottom: 1px solid var(--card-border); font-size: 11px; }
+        .bottom-panel table td { padding: 6px 10px; border-bottom: 1px solid rgba(255,255,255,.04); }
+        .bottom-panel table tr:hover td { background: rgba(255,255,255,.04); }
+        .bottom-panel table tr { cursor: pointer; }
+        .tag { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 3px; }
+        .tag.high-conf { background: rgba(239,68,68,.2); color: #fca5a5; }
+        .tag.med-conf { background: rgba(245,158,11,.2); color: #fcd34d; }
+        .tag.low-conf { background: rgba(59,130,246,.2); color: #93c5fd; }
+        .tag.active { background: rgba(16,185,129,.2); color: #6ee7b7; }
+        .tag.verified { background: rgba(16,185,129,.2); color: #6ee7b7; }
+        .tag.pending { background: rgba(245,158,11,.2); color: #fcd34d; }
+        .tag.unverified { background: rgba(239,68,68,.2); color: #fca5a5; }
+        .btn-primary { background: linear-gradient(135deg, var(--primary), var(--secondary)); color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all .2s; }
+        .btn-primary:hover { opacity: .85; transform: translateY(-1px); }
+        .btn-outline { background: transparent; border: 1px solid var(--card-border); color: var(--text-light); padding: 6px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all .2s; }
+        .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+
+        .view-detail-btn { background: linear-gradient(135deg, var(--accent), #eab308); color: #0a1628; border: none; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all .2s; }
+        .view-detail-btn:hover { opacity: .9; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(245,197,66,.3); }
+
+        .toast { position: fixed; top: 20px; right: 20px; z-index: 9999; background: rgba(10,22,40,.95); border: 1px solid var(--card-border); border-radius: 8px; padding: 12px 20px; display: none; align-items: center; gap: 10px; font-size: 13px; box-shadow: 0 8px 32px rgba(0,0,0,.5); backdrop-filter: blur(12px); animation: slideIn .3s ease; }
+        .toast.show { display: flex; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 2px; }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="sidebar-logo">
+        <div class="logo-icon">⚓</div>
+        <div><span>智慧海洋</span><small>数据管理平台</small></div>
+    </div>
+    <div class="sidebar-nav">
+        <div class="nav-label">导航菜单</div>
+        <a href="#"><span class="icon">📊</span> 数据总览</a>
+        <a href="#" class="active"><span class="icon">🗺️</span> 海洋一张图</a>
+        <a href="#"><span class="icon">📋</span> 海洋数据管理</a>
+        <a href="#"><span class="icon">📝</span> 监督管理</a>
+        <a href="#"><span class="icon">🔍</span> 智能问答</a>
+        <a href="#"><span class="icon">⚙️</span> 系统管理</a>
+    </div>
+</div>
+
+<div class="main">
+    <div class="header">
+        <div class="header-left">
+            <div class="breadcrumb">智慧海洋平台 / 海洋一张图 / <span>海洋矿产</span></div>
+        </div>
+        <div class="header-actions">
+            <span class="time" id="headerTime"></span>
+            <div class="user">
+                <span>决策者 · 张海洋</span>
+                <div class="avatar">张</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="scene-tabs">
+            <div class="scene-tab">🌊 综合态势</div>
+            <div class="scene-tab active">⛏️ 海洋矿产 <span class="badge">24</span></div>
+            <div class="scene-tab">🌪️ 灾害防治</div>
+            <div class="scene-tab">🚢 海洋执法</div>
+            <div class="scene-tab">🐟 渔业资源</div>
+            <div style="flex:1"></div>
+            <div class="scene-tab" style="font-size:11px; color:var(--text-light);">🔄 同步于 2026-05-25 14:30</div>
+        </div>
+
+        <div class="map-container">
+            <div class="map-canvas">
+                <div class="map-grid"></div>
+                <svg class="map-coastline" viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid meet">
+                    <defs>
+                        <linearGradient id="seaGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="#0d2a5a"/>
+                            <stop offset="50%" stop-color="#0a3a5a"/>
+                            <stop offset="100%" stop-color="#0a3a2a"/>
+                        </linearGradient>
+                        <linearGradient id="landGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="#1a3a1a"/>
+                            <stop offset="100%" stop-color="#2d5a2d"/>
+                        </linearGradient>
+                    </defs>
+                    <rect width="1200" height="700" fill="url(#seaGrad)"/>
+                    <path d="M 120 80 Q 150 60 180 70 Q 200 55 230 65 Q 260 50 300 60 Q 340 45 380 58 Q 420 40 460 55 Q 500 35 540 50 Q 580 30 620 45 Q 660 25 700 40 Q 740 20 780 35 Q 820 15 860 30 Q 900 10 940 25 Q 980 15 1020 30 Q 1060 20 1100 35 L 1120 40 L 1120 700 L 0 700 L 0 80 Z" fill="url(#landGrad)" opacity="0.6"/>
+                    <path d="M 130 90 Q 160 75 190 85 Q 210 72 240 80 Q 270 67 310 75 Q 350 62 390 72 Q 430 58 470 68 Q 510 52 550 62 Q 590 48 630 58 Q 670 42 710 52 Q 750 38 790 48 Q 830 32 870 45 Q 910 28 950 40 Q 990 30 1030 42 Q 1070 34 1110 45" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="2"/>
+                    <path d="M 150 110 Q 175 95 200 105 Q 225 92 255 100 Q 285 87 325 95 Q 365 82 405 92" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="1" stroke-dasharray="3,3"/>
+
+                    <text x="160" y="100" font-size="9" fill="rgba(255,255,255,.3)">海南岛</text>
+                    <text x="380" y="70" font-size="7" fill="rgba(255,255,255,.15)">琼东海域</text>
+                    <text x="660" y="55" font-size="7" fill="rgba(255,255,255,.15)">南海深海盆地</text>
+                    <text x="920" y="50" font-size="7" fill="rgba(255,255,255,.15)">东沙群岛</text>
+                    <text x="280" y="340" font-size="7" fill="rgba(255,255,255,.12)" transform="rotate(-60,280,340)">北部湾</text>
+                    <text x="480" y="280" font-size="7" fill="rgba(255,255,255,.12)" transform="rotate(-30,480,280)">琼东南盆地</text>
+                    <text x="720" y="350" font-size="7" fill="rgba(255,255,255,.12)">西沙海槽</text>
+
+                    <text x="130" y="550" font-size="7" fill="rgba(255,255,255,.12)">三亚海域</text>
+                    <text x="580" y="480" font-size="7" fill="rgba(255,255,255,.12)">中沙群岛</text>
+                    <text x="780" y="580" font-size="7" fill="rgba(255,255,255,.12)">南沙海域</text>
+                </svg>
+
+                <div class="map-markers">
+                    <div class="map-marker" style="left:22%;top:37%;" onclick="showTooltip(this,'SUS-2026-0001','琼东南盆地油气构造','石油天然气','高','已验证','中海油海南分公司')">
+                        <div class="label">琼东南盆地油气构造</div>
+                        <div class="dot high"></div>
+                        <div class="pulse high"></div>
+                    </div>
+                    <div class="map-marker" style="left:30%;top:52%;" onclick="showTooltip(this,'SUS-2026-0002','北部湾海砂矿区','海砂','中','待验证','海南地质局')">
+                        <div class="label">北部湾海砂矿区</div>
+                        <div class="dot medium"></div>
+                        <div class="pulse medium"></div>
+                    </div>
+                    <div class="map-marker" style="left:52%;top:42%;" onclick="showTooltip(this,'SUS-2026-0003','西沙海槽可燃冰远景','天然气水合物','高','已验证','广州海洋地质调查局')">
+                        <div class="label">西沙海槽可燃冰远景</div>
+                        <div class="dot high"></div>
+                        <div class="pulse high"></div>
+                    </div>
+                    <div class="map-marker" style="left:68%;top:48%;" onclick="showTooltip(this,'SUS-2026-0004','中沙多金属结核区','多金属结核','中','待验证','中科院深海所')">
+                        <div class="label">中沙多金属结核区</div>
+                        <div class="dot medium"></div>
+                    </div>
+                    <div class="map-marker" style="left:45%;top:58%;" onclick="showTooltip(this,'SUS-2026-0005','三亚滨海沙矿','滨海沙矿','低','待验证','海南省地质调查院')">
+                        <div class="label">三亚滨海沙矿</div>
+                        <div class="dot low"></div>
+                    </div>
+                    <div class="map-marker" style="left:38%;top:30%;" onclick="showTooltip(this,'SUS-2026-0006','琼北富钴结壳区','富钴结壳','中','已验证','海南地质局')">
+                        <div class="label">琼北富钴结壳区</div>
+                        <div class="dot medium"></div>
+                    </div>
+                    <div class="map-marker" style="left:58%;top:55%;" onclick="showTooltip(this,'SUS-2026-0007','中建南盆地油气显示','石油天然气','高','已验证','中海油')">
+                        <div class="label">中建南盆地油气显示</div>
+                        <div class="dot high"></div>
+                    </div>
+                    <div class="map-marker" style="left:75%;top:62%;" onclick="showTooltip(this,'SUS-2026-0008','南沙热液硫化物区','热液硫化物','低','待验证','中科院南海所')">
+                        <div class="label">南沙热液硫化物区</div>
+                        <div class="dot low"></div>
+                    </div>
+                    <div class="map-marker" style="left:15%;top:45%;" onclick="showTooltip(this,'SUS-2026-0009','莺歌海盆地气田','石油天然气','高','已验证','中海油')">
+                        <div class="label">莺歌海盆地气田</div>
+                        <div class="dot high"></div>
+                    </div>
+                    <div class="map-marker" style="left:55%;top:68%;" onclick="showTooltip(this,'SUS-2026-0010','南沙多金属结核远景区','多金属结核','低','待验证','中科院深海所')">
+                        <div class="label">南沙多金属结核远景区</div>
+                        <div class="dot low"></div>
+                    </div>
+                </div>
+
+                <div class="map-tooltip" id="mapTooltip">
+                    <div class="tt-title" id="ttTitle"></div>
+                    <div class="tt-row"><span>位置编号</span><span id="ttId"></span></div>
+                    <div class="tt-row"><span>矿种类型</span><span id="ttType"></span></div>
+                    <div class="tt-row"><span>置信等级</span><span id="ttConf"></span></div>
+                    <div class="tt-row"><span>验证状态</span><span id="ttStatus"></span></div>
+                    <div class="tt-row"><span>关联企业</span><span id="ttCompany"></span></div>
+                    <div class="tt-actions">
+                        <button class="view-detail-btn" onclick="viewDetail()">🔍 查看详情</button>
+                        <button class="btn-outline" onclick="closeTooltip()">关闭</button>
+                    </div>
+                </div>
+
+                <div class="stats-overlay">
+                    <div class="stat-chip">
+                        <span class="sc-icon">🔍</span>
+                        <div class="sc-info"><div class="sc-val">6</div><div class="sc-label">正在勘查</div></div>
+                    </div>
+                    <div class="stat-chip">
+                        <span class="sc-icon">📦</span>
+                        <div class="sc-info"><div class="sc-val">8</div><div class="sc-label">探明储量矿区</div></div>
+                    </div>
+                    <div class="stat-chip">
+                        <span class="sc-icon">💰</span>
+                        <div class="sc-info"><div class="sc-val">4.2亿</div><div class="sc-label">年度投入</div></div>
+                    </div>
+                    <div class="stat-chip">
+                        <span class="sc-icon">📜</span>
+                        <div class="sc-info"><div class="sc-val">18</div><div class="sc-label">矿权有效</div></div>
+                    </div>
+                </div>
+
+                <div class="search-overlay">
+                    <div class="search-box">
+                        <input type="text" placeholder="搜索矿产名称、位置..." id="searchInput" oninput="filterMarkers()">
+                        <span class="search-icon">🔍</span>
+                    </div>
+                    <div class="filter-chips">
+                        <span class="filter-chip active" onclick="toggleFilter(this,'all')">全部</span>
+                        <span class="filter-chip" onclick="toggleFilter(this,'high')">高置信</span>
+                        <span class="filter-chip" onclick="toggleFilter(this,'medium')">中置信</span>
+                        <span class="filter-chip" onclick="toggleFilter(this,'low')">低置信</span>
+                        <span class="filter-chip" onclick="toggleFilter(this,'verified')">已验证</span>
+                        <span class="filter-chip" onclick="toggleFilter(this,'pending')">待验证</span>
+                    </div>
+                </div>
+
+                <div class="layer-panel">
+                    <div class="lp-title">📂 矿产专题图层</div>
+                    <div class="layer-item"><input type="checkbox" checked><span class="layer-color" style="background:#ef4444;"></span> 矿产资源分布</div>
+                    <div class="layer-item"><input type="checkbox" checked><span class="layer-color" style="background:#f59e0b;"></span> 矿产疑似位置</div>
+                    <div class="layer-item"><input type="checkbox" checked><span class="layer-color" style="background:#8b5cf6;"></span> 矿业权范围</div>
+                    <div class="layer-item"><input type="checkbox" checked><span class="layer-color" style="background:#3b82f6;"></span> 勘查项目位置</div>
+                    <div class="layer-item"><input type="checkbox"><span class="layer-color" style="background:#10b981;"></span> 三维地质模型覆盖区</div>
+                    <div class="layer-item"><input type="checkbox"><span class="layer-color" style="background:#f97316;"></span> 证据链标注点</div>
+                    <div class="layer-item"><input type="checkbox"><span class="layer-color" style="background:#ec4899;"></span> 矿权到期预警</div>
+                    <div class="layer-item" style="margin-top:6px; padding-top:6px; border-top:1px solid var(--card-border);">
+                        <span style="font-size:11px; color:var(--text-light);">图层透明度</span>
+                        <div class="opacity-slider"><input type="range" min="0" max="100" value="80" oninput="updateOpacity(this.value)"></div>
+                        <span style="font-size:10px; color:var(--text-light); width:24px; text-align:right;" id="opacityVal">80%</span>
+                    </div>
+                </div>
+
+                <div class="map-legend">
+                    <div class="lg-title">图例</div>
+                    <div class="lg-item"><span class="lg-dot" style="background:#ef4444;"></span> 高置信度</div>
+                    <div class="lg-item"><span class="lg-dot" style="background:#f59e0b;"></span> 中置信度</div>
+                    <div class="lg-item"><span class="lg-dot" style="background:#3b82f6;"></span> 低置信度</div>
+                    <div class="lg-item" style="margin-top:3px; padding-top:3px; border-top:1px solid var(--card-border);">
+                        <span style="color:var(--accent);">🟢</span> 已验证
+                    </div>
+                </div>
+
+                <div class="map-scale">
+                    <span>0</span>
+                    <div class="scale-bar"></div>
+                    <span>100 km</span>
+                </div>
+            </div>
+
+            <div class="bottom-panel">
+                <div class="bp-header">
+                    <h4>📋 矿产疑似位置列表</h4>
+                    <div class="bp-actions">
+                        <button onclick="showToast('正在导出数据...')">📤 导出</button>
+                        <button onclick="showToast('列表已刷新')">🔄 刷新</button>
+                    </div>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>位置编号</th>
+                            <th>名称</th>
+                            <th>疑似矿种</th>
+                            <th>发现来源</th>
+                            <th>置信等级</th>
+                            <th>验证状态</th>
+                            <th>证据数量</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr onclick="locateMarker(0)">
+                            <td style="color:var(--accent);">SUS-2026-0001</td>
+                            <td>琼东南盆地油气构造</td>
+                            <td>石油天然气</td>
+                            <td>多方综合</td>
+                            <td><span class="tag high-conf">高</span></td>
+                            <td><span class="tag verified">已验证</span></td>
+                            <td>8</td>
+                            <td><button class="view-detail-btn" style="padding:2px 10px;font-size:11px;" onclick="event.stopPropagation();viewDetail()">查看详情</button></td>
+                        </tr>
+                        <tr onclick="locateMarker(1)">
+                            <td style="color:var(--accent);">SUS-2026-0002</td>
+                            <td>北部湾海砂矿区</td>
+                            <td>海砂</td>
+                            <td>地质调查</td>
+                            <td><span class="tag med-conf">中</span></td>
+                            <td><span class="tag pending">待验证</span></td>
+                            <td>4</td>
+                            <td><button class="view-detail-btn" style="padding:2px 10px;font-size:11px;" onclick="event.stopPropagation();viewDetail()">查看详情</button></td>
+                        </tr>
+                        <tr onclick="locateMarker(2)">
+                            <td style="color:var(--accent);">SUS-2026-0003</td>
+                            <td>西沙海槽可燃冰远景</td>
+                            <td>天然气水合物</td>
+                            <td>地球物理</td>
+                            <td><span class="tag high-conf">高</span></td>
+                            <td><span class="tag verified">已验证</span></td>
+                            <td>12</td>
+                            <td><button class="view-detail-btn" style="padding:2px 10px;font-size:11px;" onclick="event.stopPropagation();viewDetail()">查看详情</button></td>
+                        </tr>
+                        <tr onclick="locateMarker(3)">
+                            <td style="color:var(--accent);">SUS-2026-0004</td>
+                            <td>中沙多金属结核区</td>
+                            <td>多金属结核</td>
+                            <td>遥感影像</td>
+                            <td><span class="tag med-conf">中</span></td>
+                            <td><span class="tag pending">待验证</span></td>
+                            <td>3</td>
+                            <td><button class="view-detail-btn" style="padding:2px 10px;font-size:11px;" onclick="event.stopPropagation();viewDetail()">查看详情</button></td>
+                        </tr>
+                        <tr onclick="locateMarker(4)">
+                            <td style="color:var(--accent);">SUS-2026-0005</td>
+                            <td>三亚滨海沙矿</td>
+                            <td>滨海沙矿</td>
+                            <td>地质调查</td>
+                            <td><span class="tag low-conf">低</span></td>
+                            <td><span class="tag pending">待验证</span></td>
+                            <td>2</td>
+                            <td><button class="view-detail-btn" style="padding:2px 10px;font-size:11px;" onclick="event.stopPropagation();viewDetail()">查看详情</button></td>
+                        </tr>
+                        <tr onclick="locateMarker(5)">
+                            <td style="color:var(--accent);">SUS-2026-0006</td>
+                            <td>琼北富钴结壳区</td>
+                            <td>富钴结壳</td>
+                            <td>多方综合</td>
+                            <td><span class="tag med-conf">中</span></td>
+                            <td><span class="tag verified">已验证</span></td>
+                            <td>6</td>
+                            <td><button class="view-detail-btn" style="padding:2px 10px;font-size:11px;" onclick="event.stopPropagation();viewDetail()">查看详情</button></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+    let currentMarker = null;
+    let currentFilter = 'all';
+
+    function updateTime() {
+        const now = new Date();
+        document.getElementById('headerTime').textContent = now.toLocaleString('zh-CN', { hour12: false });
+    }
+    updateTime();
+    setInterval(updateTime, 1000);
+
+    function showTooltip(el, id, name, type, conf, status, company) {
+        document.getElementById('ttTitle').textContent = name;
+        document.getElementById('ttId').textContent = id;
+        document.getElementById('ttType').textContent = type;
+        document.getElementById('ttConf').textContent = conf === '高' ? '⭐⭐⭐ 高置信' : conf === '中' ? '⭐⭐ 中置信' : '⭐ 低置信';
+        document.getElementById('ttStatus').textContent = status;
+        document.getElementById('ttCompany').textContent = company;
+        const tt = document.getElementById('mapTooltip');
+        const rect = el.getBoundingClientRect();
+        const container = el.closest('.map-container').getBoundingClientRect();
+        let left = rect.left - container.left + 30;
+        let top = rect.top - container.top - 10;
+        if (left + 280 > container.width) left = rect.left - container.left - 280;
+        if (top < 0) top = rect.top - container.top + 40;
+        tt.style.left = left + 'px';
+        tt.style.top = top + 'px';
+        tt.style.display = 'block';
+        currentMarker = { id, name, type, conf, status, company };
+        el.style.zIndex = '100';
+    }
+
+    function closeTooltip() {
+        document.getElementById('mapTooltip').style.display = 'none';
+    }
+
+    function viewDetail() {
+        window.open('mineral-detail.html', '_blank');
+    }
+
+    function toggleFilter(el, level) {
+        document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+        el.classList.add('active');
+        currentFilter = level;
+        filterMarkers();
+    }
+
+    function filterMarkers() {
+        const q = document.getElementById('searchInput').value.toLowerCase();
+        const markers = document.querySelectorAll('.map-marker');
+        const rows = document.querySelectorAll('.bottom-panel table tbody tr');
+        markers.forEach((m, i) => {
+            const dot = m.querySelector('.dot');
+            const label = m.querySelector('.label').textContent.toLowerCase();
+            let visible = true;
+            if (q && !label.includes(q)) visible = false;
+            if (currentFilter === 'high' && !dot.classList.contains('high')) visible = false;
+            if (currentFilter === 'medium' && !dot.classList.contains('medium')) visible = false;
+            if (currentFilter === 'low' && !dot.classList.contains('low')) visible = false;
+            if (currentFilter === 'verified') {
+                const isVerified = i === 0 || i === 2 || i === 5;
+                if (!isVerified) visible = false;
+            }
+            if (currentFilter === 'pending') {
+                const isPending = i === 1 || i === 3 || i === 4;
+                if (!isPending) visible = false;
+            }
+            m.style.display = visible ? 'block' : 'none';
+            if (rows[i]) rows[i].style.display = visible ? '' : 'none';
+        });
+    }
+
+    function locateMarker(idx) {
+        const markers = document.querySelectorAll('.map-marker');
+        if (markers[idx]) {
+            markers[idx].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            markers[idx].style.transform = 'translate(-50%, -50%) scale(1.4)';
+            setTimeout(() => { markers[idx].style.transform = 'translate(-50%, -50%) scale(1)'; }, 1500);
+            markers[idx].querySelector('.dot').style.boxShadow = '0 0 24px rgba(245,197,66,.8)';
+            setTimeout(() => { markers[idx].querySelector('.dot').style.boxShadow = ''; }, 2000);
+        }
+    }
+
+    function updateOpacity(val) {
+        document.getElementById('opacityVal').textContent = val + '%';
+        document.querySelectorAll('.map-marker').forEach(m => {
+            m.style.opacity = val / 100;
+        });
+    }
+
+    function showToast(msg) {
+        const t = document.getElementById('toast');
+        t.textContent = '✅ ' + msg;
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.map-marker') && !e.target.closest('.map-tooltip')) {
+            closeTooltip();
+        }
+    });
+</script>
+
+</body>
+</html>
