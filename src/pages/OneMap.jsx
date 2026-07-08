@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useToast } from '../context/ToastContext'
 import { mineralMarkers, layers, sceneTabs, mapStats } from '../mock/onemap'
+import Mineral3DView from '../components/Mineral3DView'
 import './OneMap.css'
 
 const filterOptions = [
@@ -38,6 +39,8 @@ export default function OneMap() {
   const [opacity, setOpacity] = useState(0.8)
   const [visibleLayers, setVisibleLayers] = useState(() => layers.filter(l => l.visible).map(l => l.id))
   const [highlightedId, setHighlightedId] = useState(null)
+  const [show3D, setShow3D] = useState(false)
+  const [selected3DType, setSelected3DType] = useState('石油天然气')
 
   const filteredMarkers = useMemo(() => {
     return mineralMarkers.filter(m => {
@@ -306,22 +309,39 @@ export default function OneMap() {
 
         {/* Search + Filter Panel */}
         <div className="search-panel" onClick={e => e.stopPropagation()}>
-          <div className="search-input-wrap">
-            <span className="search-icon">🔍</span>
-            <input
-              type="text"
-              placeholder="搜索标注点..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-            />
-            {searchQuery && (
-              <button
-                style={{ background: 'none', border: 'none', color:'var(--text-light)', cursor:'pointer', fontSize:'14px', padding:0 }}
-                onClick={() => setSearchQuery('')}
-              >
-                ✕
-              </button>
-            )}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+            <div className="search-input-wrap" style={{ flex: 1 }}>
+              <span className="search-icon">🔍</span>
+              <input
+                type="text"
+                placeholder="搜索标注点..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+              />
+              {searchQuery && (
+                <button
+                  style={{ background: 'none', border: 'none', color:'var(--text-light)', cursor:'pointer', fontSize:'14px', padding:0 }}
+                  onClick={() => setSearchQuery('')}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            <button
+              className="btn btn-sm btn-accent"
+              onClick={() => {
+                const selected = selectedMarker || mineralMarkers[0]
+                if (selected) {
+                  setSelected3DType(selected.type)
+                  setShow3D(true)
+                } else {
+                  setShow3D(true)
+                }
+              }}
+              title="三维地质模型"
+            >
+              🏔️ 3D
+            </button>
           </div>
           <div className="filter-chips">
             {filterOptions.map(f => (
@@ -445,6 +465,33 @@ export default function OneMap() {
           </div>
         )}
       </div>
+
+      {/* 3D View Modal */}
+      {show3D && (
+        <div className="modal-overlay" onClick={() => setShow3D(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 860, width: '95%', padding: 0 }}>
+            <div className="section-header">
+              <h3>🏔️ 三维地质模型 — {selected3DType}</h3>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <select
+                  className="btn btn-sm btn-outline"
+                  style={{ background: 'rgba(255,255,255,.05)', color: 'var(--text)', border: '1px solid var(--card-border)', padding: '4px 10px', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}
+                  value={selected3DType}
+                  onChange={e => setSelected3DType(e.target.value)}
+                >
+                  {[...new Set(mineralMarkers.map(m => m.type))].map(t => (
+                    <option key={t} value={t} style={{ background: '#0a1e35' }}>{t}</option>
+                  ))}
+                </select>
+                <button className="btn btn-sm btn-outline" onClick={() => setShow3D(false)}>✕ 关闭</button>
+              </div>
+            </div>
+            <div style={{ padding: 0 }}>
+              <Mineral3DView mineralType={selected3DType} height={450} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Bottom Panel - Table */}
       <div className="bottom-panel">

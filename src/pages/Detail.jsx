@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useToast } from '../context/ToastContext'
-import { detailDataMap, allDetailIds, getAdjacentIds } from '../mock/detail'
+import { detailDataMap, getAdjacentIds } from '../mock/detail'
+import Mineral3DView from '../components/Mineral3DView'
 import './Detail.css'
 
 function renderStars(score) {
-  const full = Math.round(score / 20)
+  const full = Math.round((score || 0) / 20)
   return (
     <span className="stars">
       {[1, 2, 3, 4, 5].map(i => (
@@ -39,20 +40,8 @@ const infoFields = [
   { key: 'updateDate', label: '更新日期' },
   { key: 'dataOwner', label: '数据负责人' },
   { key: 'department', label: '所属部门' },
-  {
-    key: 'confidenceScore',
-    label: '置信评分',
-    render: (v) => (
-      <>{v}<span className="unit">/100</span></>
-    ),
-  },
-  {
-    key: 'evidenceTotal',
-    label: '证据总数',
-    render: (v) => (
-      <>{v}<span className="unit">条</span></>
-    ),
-  },
+  { key: 'confidenceScore', label: '置信评分', render: (v) => <>{v}<span className="unit">/100</span></> },
+  { key: 'evidenceTotal', label: '证据总数', render: (v) => <>{v}<span className="unit">条</span></> },
 ]
 
 export default function Detail() {
@@ -64,8 +53,10 @@ export default function Detail() {
   const [activeTab, setActiveTab] = useState('remote')
   const [showModal, setShowModal] = useState(false)
   const [showMiniMap, setShowMiniMap] = useState(false)
+  const [show3D, setShow3D] = useState(false)
   const [verified, setVerified] = useState(false)
 
+  // Validate ID exists in data map
   const data = detailDataMap[id]
   const notFound = !data
 
@@ -74,8 +65,9 @@ export default function Detail() {
     setActiveTab('remote')
     setShowModal(false)
     setShowMiniMap(false)
+    setShow3D(false)
     setVerified(data?.detailInfo?.status === '已验证')
-    const t = setTimeout(() => setLoading(false), 500)
+    const t = setTimeout(() => setLoading(false), 400)
     return () => clearTimeout(t)
   }, [id])
 
@@ -94,7 +86,10 @@ export default function Detail() {
         <div className="empty-state" style={{ paddingTop: 80 }}>
           <div className="empty-icon">🔍</div>
           <p style={{ fontSize: 16, marginBottom: 12 }}>未找到 ID 为「{id}」的疑似位置</p>
-          <button className="btn btn-outline" onClick={() => navigate('/onemap')}>
+          <p style={{ color: 'var(--text-light)', fontSize: 13, marginBottom: 20 }}>
+            可尝试从海洋一张图场景中选择标注点查看
+          </p>
+          <button className="btn btn-accent" onClick={() => navigate('/onemap')}>
             ← 返回海洋一张图
           </button>
         </div>
@@ -102,10 +97,15 @@ export default function Detail() {
     )
   }
 
-  const { detailInfo, evidenceTabs, evidenceData, companies } = data
+  // Safe data extraction with defaults
+  const detailInfo = data.detailInfo || {}
+  const evidenceTabs = data.evidenceTabs || [{ key: 'remote', label: '遥感影像', icon: '📡', count: 0 }]
+  const evidenceData = data.evidenceData || { remote: [] }
+  const companies = data.companies || []
   const { prev, next } = getAdjacentIds(id)
   const currentEvidences = evidenceData[activeTab] || []
   const relatedMarkers = detailInfo.relatedMarkers || []
+  const mineralType = detailInfo.mineralType || '石油天然气'
 
   const handleVerify = () => {
     setShowModal(false)
@@ -127,44 +127,41 @@ export default function Detail() {
       <div className="back-bar">
         <a onClick={() => navigate('/onemap')}>← 返回海洋一张图</a>
         <span className="sep">|</span>
-        <button
-          className="btn btn-sm btn-outline"
-          onClick={() => setShowMiniMap(prev => !prev)}
-        >
+        <button className="btn btn-sm btn-outline" onClick={() => setShowMiniMap(prev => !prev)}>
           📍 {showMiniMap ? '关闭地图' : '在地图中查看'}
         </button>
-        <span className="location-text">📍 当前位置：{detailInfo.area}</span>
+        <span className="sep">|</span>
+        <button className="btn btn-sm btn-outline" onClick={() => setShow3D(prev => !prev)}>
+          🏔️ {show3D ? '关闭三维视图' : '三维地质模型'}
+        </button>
+        <span className="location-text">📍 {detailInfo.area || '未知海域'}</span>
       </div>
 
       {/* Header */}
       <div className="detail-header">
         <div className="dh-left">
           <h1>
-            {detailInfo.name}
-            <span className="pos-id">{detailInfo.id}</span>
+            {detailInfo.name || '未命名'}
+            <span className="pos-id">{detailInfo.id || id}</span>
           </h1>
           <div className="dh-meta">
             {renderStars(detailInfo.confidenceScore)}
             <span className={`tag ${getStatusTag(detailInfo.status)}`}>
-              {verified ? '已验证' : '待验证'}
+              {verified ? '✅ 已验证' : '⏳ 待验证'}
             </span>
             <span style={{ color: 'var(--text-light)', fontSize: 12 }}>
-              来源：{detailInfo.source}
+              来源：{detailInfo.source || '未知'}
             </span>
             <span style={{ color: 'var(--text-light)', fontSize: 12 }}>
-              发现：{detailInfo.discoverDate}
+              发现：{detailInfo.discoverDate || '-'}
             </span>
             <span style={{ color: 'var(--text-light)', fontSize: 12 }}>
-              更新：{detailInfo.updateDate}
+              更新：{detailInfo.updateDate || '-'}
             </span>
           </div>
         </div>
         <div className="dh-right">
-          <button
-            className="btn btn-primary"
-            disabled={verified}
-            onClick={() => setShowModal(true)}
-          >
+          <button className="btn btn-primary" disabled={verified} onClick={() => setShowModal(true)}>
             ✅ 标记为已验证
           </button>
           <button className="btn btn-outline" onClick={handleExport}>
@@ -176,24 +173,29 @@ export default function Detail() {
       {/* Prev / Next navigation */}
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 18, gap: 12 }}>
         {prev ? (
-          <button
-            className="btn btn-outline"
-            onClick={() => navigate(`/detail/${prev}`)}
-          >
-            ◀ 上一个
+          <button className="btn btn-outline" onClick={() => navigate(`/detail/${prev}`)}>
+            ◀ 上一个（{detailDataMap[prev]?.detailInfo?.name || prev}）
           </button>
-        ) : (
-          <div />
-        )}
+        ) : <div />}
         {next && (
-          <button
-            className="btn btn-outline"
-            onClick={() => navigate(`/detail/${next}`)}
-          >
-            下一个 ▶
+          <button className="btn btn-outline" onClick={() => navigate(`/detail/${next}`)}>
+            下一个 ▶（{detailDataMap[next]?.detailInfo?.name || next}）
           </button>
         )}
       </div>
+
+      {/* 3D View Section */}
+      {show3D && (
+        <div className="section">
+          <div className="section-header">
+            <h3>🏔️ 三维地质模型 — {mineralType}</h3>
+            <button className="btn btn-sm btn-outline" onClick={() => setShow3D(false)}>收起</button>
+          </div>
+          <div className="section-body" style={{ padding: 0 }}>
+            <Mineral3DView mineralType={mineralType} height={400} />
+          </div>
+        </div>
+      )}
 
       {/* 基本信息 */}
       <div className="section">
@@ -208,7 +210,7 @@ export default function Detail() {
                 <div key={field.key} className="info-item">
                   <div className="ii-label">{field.label}</div>
                   <div className="ii-value">
-                    {field.render ? field.render(value) : value}
+                    {field.render ? field.render(value) : (value ?? '-')}
                     {!field.render && field.unit && <span className="unit">{field.unit}</span>}
                   </div>
                 </div>
@@ -217,7 +219,7 @@ export default function Detail() {
             <div className="info-item full">
               <div className="ii-label">综合描述</div>
               <div className="ii-value" style={{ fontSize: 13, lineHeight: 1.7, fontWeight: 400 }}>
-                {detailInfo.description}
+                {detailInfo.description || '暂无描述信息'}
               </div>
             </div>
           </div>
@@ -229,7 +231,7 @@ export default function Detail() {
         <div className="section-header">
           <h3>🔗 证据链</h3>
           <span className="tag verified" style={{ fontSize: 12 }}>
-            共 {detailInfo.evidenceTotal} 条证据
+            共 {detailInfo.evidenceTotal || 0} 条证据
           </span>
         </div>
         <div className="section-body">
@@ -241,8 +243,8 @@ export default function Detail() {
                 className={`evi-tab ${activeTab === tab.key ? 'active' : ''}`}
                 onClick={() => setActiveTab(tab.key)}
               >
-                {tab.icon} {tab.label}
-                <span className="evi-count">{tab.count}</span>
+                {tab.icon || '📄'} {tab.label}
+                <span className="evi-count">{tab.count ?? 0}</span>
               </button>
             ))}
           </div>
@@ -250,14 +252,18 @@ export default function Detail() {
           {/* Summary bar */}
           <div className="evi-summary">
             <div className="es-item">
-              证据链评估：<span className="es-val good">综合置信度较高</span>
+              证据链评估：<span className="es-val good">综合置信度{detailInfo.confidence === '高' ? '较高' : detailInfo.confidence === '中' ? '中等' : '一般'}</span>
             </div>
             <div className="es-item">
-              有效证据占比：<span className="es-val good">87.5%</span>
+              有效证据占比：<span className="es-val good">
+                {currentEvidences.length > 0
+                  ? Math.round(currentEvidences.filter(e => e.conf !== '一般').length / currentEvidences.length * 100)
+                  : 0}%
+              </span>
             </div>
             <div className="es-item" style={{ flex: 1 }}>
               <span style={{ color: 'var(--text-light)' }}>
-                多维度证据相互印证，构造-地球物理-地球化学证据链完整
+                当前查看维度：{evidenceTabs.find(t => t.key === activeTab)?.label || '遥感影像'}，共 {currentEvidences.length} 条记录
               </span>
             </div>
           </div>
@@ -277,29 +283,26 @@ export default function Detail() {
                 </tr>
               </thead>
               <tbody>
-                {currentEvidences.map((evi, i) => (
-                  <tr key={i}>
-                    <td style={{ fontWeight: 500 }}>{evi.name}</td>
-                    <td style={{ color: 'var(--text-light)' }}>{evi.source}</td>
-                    <td>{evi.type}</td>
-                    <td style={{ color: 'var(--text-light)' }}>{evi.date}</td>
-                    <td>
-                      <span className={`tag ${getConfTag(evi.conf)}`}>{evi.conf}</span>
-                    </td>
-                    <td style={{ color: 'var(--text-light)', maxWidth: 260, whiteSpace: 'normal', wordBreak: 'break-all' }}>
-                      {evi.summary}
-                    </td>
-                    <td>
-                      <span className="evi-file" onClick={() => handleFileClick(evi)}>
-                        {evi.file}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-                {currentEvidences.length === 0 && (
+                {currentEvidences.length > 0 ? (
+                  currentEvidences.map((evi, i) => (
+                    <tr key={i}>
+                      <td style={{ fontWeight: 500 }}>{evi.name}</td>
+                      <td style={{ color: 'var(--text-light)' }}>{evi.source}</td>
+                      <td>{evi.type}</td>
+                      <td style={{ color: 'var(--text-light)' }}>{evi.date}</td>
+                      <td><span className={`tag ${getConfTag(evi.conf)}`}>{evi.conf}</span></td>
+                      <td style={{ color: 'var(--text-light)', maxWidth: 260, whiteSpace: 'normal', wordBreak: 'break-all' }}>
+                        {evi.summary}
+                      </td>
+                      <td><span className="evi-file" onClick={() => handleFileClick(evi)}>{evi.file}</span></td>
+                    </tr>
+                  ))
+                ) : (
                   <tr>
                     <td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-light)', padding: 40 }}>
-                      暂无证据数据
+                      <div style={{ fontSize: 24, marginBottom: 8, opacity: 0.4 }}>📭</div>
+                      <p>该维度暂无证据数据</p>
+                      <p style={{ fontSize: 11, marginTop: 4, opacity: 0.6 }}>请切换其他证据维度查看</p>
                     </td>
                   </tr>
                 )}
@@ -314,15 +317,14 @@ export default function Detail() {
         <div className="section-header">
           <h3>🏢 相关企业</h3>
           {companies.length > 0 && (
-            <button className="btn btn-sm btn-outline" onClick={() => toast('查看全部关联企业（演示）')}>
-              查看全部
-            </button>
+            <span className="tag verified" style={{ fontSize: 12 }}>共 {companies.length} 家企业</span>
           )}
         </div>
         <div className="section-body" style={{ padding: companies.length === 0 ? '16px 20px' : 0 }}>
           {companies.length === 0 ? (
             <div style={{ textAlign: 'center', color: 'var(--text-light)', padding: '20px 0' }}>
-              暂无关联企业
+              <div style={{ fontSize: 24, marginBottom: 8, opacity: 0.4 }}>🏢</div>
+              <p>暂无关联企业</p>
             </div>
           ) : (
             <div className="table-wrap company-table">
@@ -360,6 +362,7 @@ export default function Detail() {
         <div className="section">
           <div className="section-header">
             <h3>📍 关联标注点</h3>
+            <span className="tag verified" style={{ fontSize: 12 }}>{relatedMarkers.length} 个关联位置</span>
           </div>
           <div className="section-body">
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10 }}>
@@ -376,11 +379,13 @@ export default function Detail() {
                   >
                     <div className="card-body" style={{ padding: '12px 16px' }}>
                       <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>{r.name}</div>
-                      <div style={{ fontSize: 12, color: 'var(--text-light)' }}>
-                        {r.id} · {r.mineralType}
-                      </div>
-                      <div style={{ fontSize: 12, color: 'var(--text-light)', marginTop: 4 }}>
-                        {r.area} · {r.depth}
+                      <div style={{ fontSize: 12, color: 'var(--text-light)' }}>{r.id} · {r.mineralType}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-light)', marginTop: 4 }}>{r.area} · {r.depth}</div>
+                      <div style={{ fontSize: 12, marginTop: 4 }}>
+                        <span className={`tag ${getStatusTag(r.status)}`}>{r.status}</span>
+                        <span className={`tag ${r.confidence === '高' ? 'high-conf' : r.confidence === '中' ? 'med-conf' : 'low-conf'}`} style={{ marginLeft: 6 }}>
+                          {r.confidence}置信
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -401,12 +406,8 @@ export default function Detail() {
               此操作将更新该疑似位置的状态信息，确认后不可直接撤销。
             </p>
             <div className="modal-actions">
-              <button className="btn btn-outline" onClick={() => setShowModal(false)}>
-                取消
-              </button>
-              <button className="btn btn-primary" onClick={handleVerify}>
-                确认验证
-              </button>
+              <button className="btn btn-outline" onClick={() => setShowModal(false)}>取消</button>
+              <button className="btn btn-primary" onClick={handleVerify}>确认验证</button>
             </div>
           </div>
         </div>
@@ -421,10 +422,10 @@ export default function Detail() {
         <div className="gm-map">
           <div className="gm-placeholder">
             <div className="gm-pin">📍</div>
-            <div>{detailInfo.area}</div>
-            <div style={{ marginTop: 4, opacity: 0.6 }}>{detailInfo.coord}</div>
+            <div>{detailInfo.area || '未知海域'}</div>
+            <div style={{ marginTop: 4, opacity: 0.6 }}>{detailInfo.coord || ''}</div>
           </div>
-          <div className="coord-label">{detailInfo.coord}</div>
+          <div className="coord-label">{detailInfo.coord || ''}</div>
         </div>
       </div>
     </div>
